@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { validate } from './env.validator';
 import { ApartmentsModule } from './modules/apartments/apartments.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ApartmentsModule } from './modules/apartments/apartments.module';
     AuthModule,
     UsersModule,
     ApartmentsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [

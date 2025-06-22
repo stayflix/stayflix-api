@@ -11,7 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AdminJwtAuthGuard } from './guards/jwt-auth-guard';
 import { AdminLocalAuthGuard } from './guards/local-auth-guard';
 import { AllowUnauthorizedRequest } from 'src/decorators/unauthorized.decorator';
@@ -24,6 +24,7 @@ import { CreateApartmentDto } from '../apartments/apartments.dto';
 @Controller('admin')
 @ApiTags('admin')
 @UseGuards(AdminJwtAuthGuard)
+@ApiBearerAuth()
 export class AdminController {
   constructor(
     private readonly service: AdminService,

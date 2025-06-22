@@ -7,8 +7,8 @@ const config: Options = {
   user: process.env.DATABASE_USER || 'user',
   password: process.env.DATABASE_PASSWORD || 'user',
   dbName: process.env.DATABASE_NAME || 'stayflix',
-  entitiesTs: ['./src/**/*.entity.ts'],
-  entities: ['./dist/**/*.entity.js'],
+  entitiesTs: ['./src/**/*.entity.ts', './src/**/*.entities.ts'],
+  entities: ['./dist/**/*.entity.js', './src/**/*.entities.js'],
   baseDir: __dirname + '/..',
   migrations: {
     tableName: 'migrations',
