@@ -61,3 +61,9 @@ export interface IAuthContext {
   fullName: string;
   phone: string;
 }
+
+export interface IAdminAuthContext {
+  name: string;
+  email: string;
+  uuid: string;
+}

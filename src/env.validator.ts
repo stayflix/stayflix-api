@@ -24,8 +24,8 @@ class EnvironmentVariables {
   DATABASE_USER: string;
   @IsString()
   SMTP_HOST: string;
-  @IsString()
-  SMTP_PORT: string;
+  @IsNumber()
+  SMTP_PORT: number;
   @IsString()
   SMTP_USERNAME: string;
   @IsString()

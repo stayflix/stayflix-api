@@ -1,4 +1,4 @@
-import { EntityManager, EntityRepository } from '@mikro-orm/core';
+import { EntityManager, EntityRepository, QueryOrder } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import {
   ConflictException,
@@ -18,6 +18,8 @@ import { IAuthContext } from 'src/types';
 import axios from 'axios';
 import { PaystackConfiguration } from 'src/config/configuration';
 import { ConfigType } from '@nestjs/config';
+import { UserListQueryDto } from '../admin/admin.dto';
+import { Bookings } from '../apartments/apartments.entity';
 
 @Injectable()
 export class UsersService {
@@ -25,10 +27,78 @@ export class UsersService {
     private readonly em: EntityManager,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
+    @InjectRepository(Bookings)
+    private readonly bookingsRepository: EntityRepository<Bookings>,
     @Inject(PaystackConfiguration.KEY)
     private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
     private readonly sharedService: SharedService,
   ) {}
+
+  async getUserWithBookings(userId: string) {
+    const user = await this.usersRepository.findOneOrFail({ uuid: userId });
+    const bookings = await this.bookingsRepository.find(
+      {
+        user: { uuid: userId },
+        isCancelled: false,
+      },
+      { populate: ['apartment'], orderBy: { startDate: QueryOrder.DESC } },
+    );
+    return {
+      profile: {
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone,
+      },
+      bookings: bookings.map((b) => ({
+        property: b.apartment?.title,
+        location: b.apartment?.city || 'Unknown',
+        date: b.startDate,
+        amount: b.totalAmount,
+        status: b.status,
+      })),
+    };
+  }
+
+  async getPaginatedUsers({
+    search,
+    page,
+    limit,
+    sortBy,
+    order,
+  }: UserListQueryDto) {
+    const where = {};
+    if (search) {
+      Object.assign(where, {
+        $or: [
+          { fullName: { $like: `%${search}%` } },
+          { email: { $ilike: `%${search}%` } },
+          { phone: { $ilike: `%${search}%` } },
+        ],
+      });
+    }
+    const [data, total] = await this.usersRepository.findAndCount(where, {
+      offset: (page - 1) * limit,
+      limit,
+      orderBy: {
+        [sortBy || 'fullName']:
+          order?.toUpperCase() === 'DESC' ? QueryOrder.DESC : QueryOrder.ASC,
+      },
+    });
+    return {
+      data: data.map((user) => ({
+        uuid: user.uuid,
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone,
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
 
   async findByEmailOrPhone(emailOrPhone: string) {
     let username: string;

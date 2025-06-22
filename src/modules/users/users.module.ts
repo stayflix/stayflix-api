@@ -6,14 +6,18 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtStrategy } from 'src/strategies/jwt.strategy';
 import { ConfigModule } from '@nestjs/config';
-import { JwtAuthConfiguration, PaystackConfiguration } from 'src/config/configuration';
+import {
+  JwtAuthConfiguration,
+  PaystackConfiguration,
+} from 'src/config/configuration';
+import { Bookings } from '../apartments/apartments.entity';
 
 @Module({
   imports: [
     ConfigModule.forFeature(PaystackConfiguration),
     ConfigModule.forFeature(JwtAuthConfiguration),
     MikroOrmModule.forFeature({
-      entities: [Users, BlacklistedTokens],
+      entities: [Users, BlacklistedTokens, Bookings],
     }),
     SharedModule,
   ],

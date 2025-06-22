@@ -59,6 +59,9 @@ export class Apartments extends Timestamp {
   title: string;
 
   @Property({ nullable: true })
+  city: string;
+
+  @Property({ nullable: true })
   highlights: string;
 
   @Property({ nullable: true })
@@ -95,6 +98,189 @@ export class Apartments extends Timestamp {
 
   @Property({ default: true })
   draft: boolean;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'apartment_reviews' })
+export class ApartmentReviews extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user: Users;
+
+  @ManyToOne(() => Apartments, {
+    fieldName: 'apartment',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  apartment: Apartments;
+
+  @Property({ default: 0, nullable: true })
+  rating: number;
+
+  @Property({ nullable: true })
+  review: string;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'pay_ins' })
+export class PayIn extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user: Users;
+
+  @ManyToOne(() => Apartments, {
+    fieldName: 'apartment',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  apartment: Apartments;
+
+  @Property({ nullable: true, default: 0 })
+  amount: number;
+
+  @Property({ nullable: true })
+  reference: string;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'pay_outs' })
+export class PayOut extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user: Users;
+
+  @ManyToOne(() => Apartments, {
+    fieldName: 'apartment',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  apartment: Apartments;
+
+  @Property({ nullable: true, default: 0 })
+  amount: number;
+
+  @Property({ nullable: true })
+  reference: string;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'support_tickets' })
+export class SupportTicket extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @Property({ nullable: true })
+  fullName: string;
+
+  @Property({ nullable: true })
+  phone: string;
+
+  @Property({ nullable: true })
+  email: string;
+
+  @Property({ nullable: true })
+  comment: string;
+
+  @Property({ default: 'pending' })
+  status: 'pending' | 'resolved';
+}
+
+export enum BookingStatus {
+  BOOKED = 'Booked',
+  CHECKED_IN = 'Checked In',
+  COMPLETED = 'Completed',
+  CANCELLED = 'Cancelled',
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'bookings' })
+export class Bookings extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Apartments, {
+    fieldName: 'apartment',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  apartment: Apartments;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user: Users;
+
+  @Property({ nullable: true })
+  startDate: Date;
+
+  @Property({ nullable: true })
+  endDate: Date;
+
+  @Property({ default: false })
+  isCancelled: boolean;
+
+  @Property({ default: false })
+  isPaidOut: boolean;
+
+  @Property({ nullable: true })
+  totalAmount: number;
+
+  @Enum({ items: () => ReservationType, nullable: true })
+  reservationType: ReservationType;
+
+  @Enum({ items: () => BookingStatus, default: BookingStatus.BOOKED })
+  status: BookingStatus;
+
+  @Property({ nullable: true })
+  notes: string;
 }
 
 @Filter({

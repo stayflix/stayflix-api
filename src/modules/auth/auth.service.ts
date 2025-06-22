@@ -25,7 +25,7 @@ import {
   VerifyOtpDto,
 } from './auth.dto';
 import { v4 } from 'uuid';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { nanoid } from 'nanoid';
 import { generateOtp } from 'src/utils';
 import { UsersService } from '../users/users.service';

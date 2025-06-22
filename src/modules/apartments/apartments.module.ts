@@ -4,7 +4,9 @@ import { ApartmentService } from './apartments.service';
 import { ApartmentsController } from './apartments.controller';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import {
+  ApartmentReviews,
   Apartments,
+  Bookings,
   Wishlist,
   WishlistedApartments,
 } from './apartments.entity';
@@ -19,6 +21,8 @@ import { BlacklistedTokens, Users } from '../users/users.entity';
         WishlistedApartments,
         BlacklistedTokens,
         Users,
+        ApartmentReviews,
+        Bookings,
       ],
     }),
   ],

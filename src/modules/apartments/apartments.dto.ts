@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -172,4 +173,12 @@ export class CreateWishlistDto {
 export class AddToWishlistDto {
   @IsString()
   uuid: string;
+}
+
+export class BookApartmentDto {
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
 }
