@@ -115,7 +115,7 @@ export class AuthService {
         const pinId = nanoid();
         const otp = generateOtp();
         await this.sharedService.sendOtp(otp, user.phone);
-        const otpModel = this.otpRepository.create({ otp, pinId });
+        const otpModel = this.otpRepository.create({ uuid: v4(), otp, pinId });
         this.em.persist(otpModel);
         await this.em.flush();
         return { pinId, uuid: user.uuid };
