@@ -293,9 +293,6 @@ export class Wishlist extends Timestamp {
   @PrimaryKey()
   uuid: string;
 
-  @Property({ nullable: true })
-  title: string;
-
   @ManyToOne(() => Users, {
     fieldName: 'user',
     referenceColumnName: 'uuid',
@@ -304,38 +301,11 @@ export class Wishlist extends Timestamp {
   })
   user?: Users;
 
-  @OneToMany(
-    () => WishlistedApartments,
-    (wishlistedApartment) => wishlistedApartment.wishlist,
-  )
-  apartments = new Collection<WishlistedApartments>(this);
-}
-
-@Filter({
-  name: 'notDeleted',
-  cond: { deletedAt: null },
-  default: true,
-})
-@Entity({ tableName: 'wishlisted_apartments' })
-@Unique({ properties: ['wishlist', 'apartment'] })
-export class WishlistedApartments extends Timestamp {
-  @PrimaryKey()
-  uuid: string;
-
-  @ManyToOne(() => Wishlist, {
-    fieldName: 'wishlist',
-    referenceColumnName: 'uuid',
-    columnType: 'varchar(255)',
-    nullable: true,
-  })
-  wishlist?: Wishlist;
-
   @ManyToOne(() => Apartments, {
     fieldName: 'apartment',
     referenceColumnName: 'uuid',
     columnType: 'varchar(255)',
     nullable: true,
-    eager: true,
   })
   apartment?: Apartments;
 }

@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsString, Length } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, Length } from 'class-validator';
 import { OTPActionType } from 'src/types';
 
 export class SignupStepOneDto {
@@ -30,6 +30,10 @@ export class SignupStepTwoDto {
 
   @IsString()
   uuid: string;
+
+  @IsString()
+  @IsOptional()
+  picture: string;
 }
 
 export class LoginDTO {

@@ -74,6 +74,10 @@ export class UpdateUserInfo {
   @IsString()
   @IsOptional()
   nin: string;
+
+  @IsString()
+  @IsOptional()
+  picture: string;
 }
 
 export class DeactivateAccountDto {

@@ -28,7 +28,6 @@ import {
   PayOut,
   SupportTicket,
   Wishlist,
-  WishlistedApartments,
 } from './apartments.entity';
 import { Users } from '../users/users.entity';
 import { v4 } from 'uuid';
@@ -51,8 +50,6 @@ export class ApartmentService {
     private readonly usersRepository: EntityRepository<Users>,
     @InjectRepository(Wishlist)
     private readonly wishlistRepository: EntityRepository<Wishlist>,
-    @InjectRepository(WishlistedApartments)
-    private readonly wishlistedApartmentsRepository: EntityRepository<WishlistedApartments>,
     @InjectRepository(Bookings)
     private readonly bookingsRepository: EntityRepository<Bookings>,
   ) {}
@@ -218,133 +215,141 @@ export class ApartmentService {
     return diffInDays * (apartment.weekdayBasePrice || 0);
   }
 
-  async deleteWishlist(wishlistUuid: string) {
-    const wishlistExists = await this.wishlistRepository.findOne({
-      uuid: wishlistUuid,
-    });
-    if (!wishlistExists) throw new NotFoundException('Wishlist not found');
-    await this.wishlistRepository.nativeDelete({ uuid: wishlistUuid });
-    await this.wishlistedApartmentsRepository.nativeDelete({
-      wishlist: { uuid: wishlistUuid },
-    });
-    return { message: 'Wishlist deleted successfully' };
-  }
-
-  async removeFromWishlist(apartmentUuid: string, wishlistUuid: string) {
-    const [apartmentExists, wishlistExists, apartmentExistInWishlist] =
-      await Promise.all([
-        this.apartmentsRepository.findOne({
-          uuid: apartmentUuid,
-        }),
-        this.wishlistRepository.findOne({ uuid: wishlistUuid }),
-        this.wishlistedApartmentsRepository.findOne({
-          apartment: { uuid: apartmentUuid },
-          wishlist: { uuid: wishlistUuid },
-        }),
-      ]);
-    if (!apartmentExists) throw new NotFoundException('Apartment not found');
-    if (!wishlistExists) throw new NotFoundException('Wishlist not found');
-    if (!apartmentExistInWishlist)
-      throw new ConflictException('Apartment does not exist in wishlist');
-    await this.wishlistedApartmentsRepository.nativeDelete({
-      uuid: apartmentExistInWishlist.uuid,
-    });
-    return { message: 'Apartment removed from wishlist' };
-  }
-
-  async addToWishlist(apartmentUuid: string, wishlistUuid: string) {
-    const [apartmentExists, wishlistExists, apartmentExistInWishlist] =
-      await Promise.all([
-        this.apartmentsRepository.findOne({
-          uuid: apartmentUuid,
-        }),
-        this.wishlistRepository.findOne({ uuid: wishlistUuid }),
-        this.wishlistedApartmentsRepository.findOne({
-          apartment: { uuid: apartmentUuid },
-          wishlist: { uuid: wishlistUuid },
-        }),
-      ]);
-    if (!apartmentExists) throw new NotFoundException('Apartment not found');
-    if (!wishlistExists) throw new NotFoundException('Wishlist not found');
-    if (apartmentExistInWishlist)
-      throw new ConflictException('Apartment already exists in wishlist');
-    const wishlistedApartmentModel = this.wishlistedApartmentsRepository.create(
+  async fetchWishlistItems({ uuid }: IAuthContext) {
+    return this.wishlistRepository.find(
       {
-        uuid: v4(),
-        wishlist: this.wishlistRepository.getReference(wishlistUuid),
-        apartment: this.apartmentsRepository.getReference(apartmentUuid),
-      },
-    );
-    this.em.persist(wishlistedApartmentModel);
-    await this.em.flush();
-    return { message: 'Apartment added to wishlist' };
-  }
-
-  async createWishlist(
-    apartmentUuid: string,
-    dto: CreateWishlistDto,
-    { uuid }: IAuthContext,
-  ) {
-    const [wishlistExists, apartmentExists] = await Promise.all([
-      this.wishlistRepository.findOne({
         user: { uuid },
-        title: dto.name,
-      }),
-      this.apartmentsRepository.findOne({
-        uuid: apartmentUuid,
-      }),
-    ]);
-    if (wishlistExists)
-      throw new ConflictException(
-        `Wishlist with name: ${dto.name} already exists`,
-      );
-    if (!apartmentExists) throw new NotFoundException(`Apartment not found`);
-    const wishlistUuid = v4();
-    const wishlistModel = this.wishlistRepository.create({
-      uuid: wishlistUuid,
-      title: dto.name,
-      user: this.usersRepository.getReference(uuid),
-    });
-    const wishlistedApartmentModel = this.wishlistedApartmentsRepository.create(
-      {
-        uuid: v4(),
-        wishlist: this.wishlistRepository.getReference(wishlistUuid),
-        apartment: this.apartmentsRepository.getReference(apartmentUuid),
       },
+      { populate: ['apartment'] },
     );
-    this.em.persist(wishlistModel);
-    this.em.persist(wishlistedApartmentModel);
-    await this.em.flush();
-    return { message: 'Wishlist created successfully' };
   }
 
-  async getApartment(apartmentUuid: string) {
-    return this.apartmentsRepository.findOne({ uuid: apartmentUuid });
+  async removeFromWishlist(apartmentUuid: string, { uuid }: IAuthContext) {
+    const wishlist = await this.wishlistRepository.findOne({
+      user: { uuid },
+      apartment: { uuid: apartmentUuid },
+    });
+    if (!wishlist)
+      throw new NotFoundException('Apartment not found in wishlist');
+    await this.wishlistRepository.nativeDelete({
+      user: { uuid },
+      apartment: { uuid: apartmentUuid },
+    });
+    return { message: 'Removed from wishlist', success: true };
+  }
+
+  async addToWishlist(apartmentUuid: string, { uuid }: IAuthContext) {
+    const apartment = await this.apartmentsRepository.findOne({
+      uuid: apartmentUuid,
+    });
+    if (!apartment) throw new NotFoundException(`Apartment not found`);
+    const exists = await this.wishlistRepository.findOne({
+      user: { uuid },
+      apartment: { uuid: apartmentUuid },
+    });
+    if (exists) throw new ConflictException(`Apartment is in wishlist already`);
+    const wishlist = this.wishlistRepository.create({
+      uuid: v4(),
+      user: this.usersRepository.getReference(uuid),
+      apartment: this.apartmentsRepository.getReference(apartmentUuid),
+    });
+    this.em.persist(wishlist);
+    await this.em.flush();
+    return { message: 'Added to wishlist', success: true };
+  }
+
+  async getApartment(
+    apartmentUuid: string,
+    userUuid?: string,
+  ): Promise<Apartments> {
+    const apartment = await this.apartmentsRepository.findOne({
+      uuid: apartmentUuid,
+    });
+
+    let isWishlisted = false;
+
+    if (apartment && userUuid) {
+      const wishlistEntry = await this.wishlistRepository.findOne({
+        apartment: apartmentUuid,
+        user: userUuid,
+      });
+
+      isWishlisted = !!wishlistEntry;
+    }
+
+    return apartment
+      ? ({
+          ...apartment,
+          isWishlisted,
+        } as any)
+      : null;
   }
 
   async fetchApartments(
     filter: ApartmentFilter,
     pagination: PaginationInput,
-    search: string,
+    search?: string,
+    userUuid?: string,
   ) {
     const { page = 1, limit = 20 } = pagination;
-    const conditions = {
-      ...(search ? { title: { $ilike: `%${search}%` } } : {}),
-      ...(filter?.apartmentType
-        ? { apartmentType: filter?.apartmentType }
-        : {}),
+    const offset = limit * (page - 1);
+
+    const params: any = {
+      search: search || null,
+      searchLike: search ? `%${search}%` : null,
+      apartmentType: filter?.apartmentType || null,
+      limit,
+      offset,
+      userUuid: userUuid || null,
     };
-    const [totalApartments, apartments] = await Promise.all([
-      this.apartmentsRepository.count(conditions),
-      this.apartmentsRepository.find(conditions, {
-        limit,
-        offset: limit * (page - 1),
-        orderBy: {
-          [pagination?.orderBy || 'createdAt']: pagination?.orderDir || 'DESC',
-        },
-      }),
+
+    let sql = '';
+    if (userUuid) {
+      sql = `
+      SELECT
+        a.*,
+        CASE WHEN w.uuid IS NOT NULL THEN true ELSE false END AS "isWishlisted"
+      FROM apartments a
+      LEFT JOIN wishlist w
+        ON w.apartment_uuid = a.uuid
+       AND w.user_uuid = :userUuid
+      WHERE
+        (:search IS NULL OR a.title ILIKE :searchLike)
+        AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
+      ORDER BY a."created_at" DESC
+      LIMIT :limit OFFSET :offset
+    `;
+    } else {
+      sql = `
+      SELECT
+        a.*,
+        false AS "isWishlisted"
+      FROM apartments a
+      WHERE
+        (:search IS NULL OR a.title ILIKE :searchLike)
+        AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
+      ORDER BY a."created_at" DESC
+      LIMIT :limit OFFSET :offset
+    `;
+    }
+
+    const countSql = `
+    SELECT COUNT(*)::int AS total
+    FROM apartments a
+    WHERE
+      (:search IS NULL OR a.title ILIKE :searchLike)
+      AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
+  `;
+
+    const conn = this.em.getConnection();
+    const [apartments, totalResult] = await Promise.all([
+      conn.execute(sql, params),
+      conn.execute(countSql, params),
     ]);
-    return buildResponseDataWithPagination(apartments, totalApartments, {
+
+    const total = totalResult[0]?.total || 0;
+
+    return buildResponseDataWithPagination(apartments, total, {
       page,
       limit,
     });

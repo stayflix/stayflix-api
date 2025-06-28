@@ -71,31 +71,19 @@ export class MyApartmentsController {
     return this.apartmentService.deleteApartment(uuid, req.user as any);
   }
 
-  @Post(':uuid/create-wishlist')
-  createWishlist(
-    @Param('uuid') uuid: string,
-    @Body() body: CreateWishlistDto,
-    @Req() req: Request,
-  ) {
-    return this.apartmentService.createWishlist(uuid, body, req.user as any);
+  @Get('wishlist')
+  fetchWishlistItems(@Req() req: Request) {
+    return this.apartmentService.fetchWishlistItems(req.user as any);
   }
 
   @Post(':uuid/add-to-wishlist')
-  addToWishlist(@Param('uuid') uuid: string, @Body() body: AddToWishlistDto) {
-    return this.apartmentService.addToWishlist(uuid, body.uuid);
+  addToWishlist(@Param('uuid') uuid: string, @Req() req: Request) {
+    return this.apartmentService.addToWishlist(uuid, req.user as any);
   }
 
   @Post(':uuid/remove-from-wishlist')
-  removeFromWishlist(
-    @Param('uuid') uuid: string,
-    @Body() body: AddToWishlistDto,
-  ) {
-    return this.apartmentService.removeFromWishlist(uuid, body.uuid);
-  }
-
-  @Post('wishlist/:uuid/delete')
-  deleteWishlist(@Param('uuid') uuid: string) {
-    return this.apartmentService.deleteWishlist(uuid);
+  removeFromWishlist(@Param('uuid') uuid: string, @Req() req: Request) {
+    return this.apartmentService.removeFromWishlist(uuid, req.user as any);
   }
 
   @Post(':uuid/book')

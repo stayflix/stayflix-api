@@ -96,6 +96,7 @@ export class AuthService {
       userExists.country = user.country;
       userExists.state = user.state;
       userExists.userType = user.userType;
+      if (user.picture) userExists.picture = user.picture;
       em.persist(otpModel);
       await em.flush();
     });

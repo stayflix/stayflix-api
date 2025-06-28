@@ -8,7 +8,6 @@ import {
   Apartments,
   Bookings,
   Wishlist,
-  WishlistedApartments,
 } from './apartments.entity';
 import { BlacklistedTokens, Users } from '../users/users.entity';
 
@@ -18,7 +17,6 @@ import { BlacklistedTokens, Users } from '../users/users.entity';
       entities: [
         Apartments,
         Wishlist,
-        WishlistedApartments,
         BlacklistedTokens,
         Users,
         ApartmentReviews,

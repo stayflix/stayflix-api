@@ -167,6 +167,7 @@ export class UsersService {
     if (dto.nin) {
       user.nin = dto.nin;
     }
+    if (dto.picture) user.picture = dto.picture;
     await this.em.flush();
   }
 

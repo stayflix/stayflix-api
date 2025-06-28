@@ -163,6 +163,10 @@ export class MyApartmentQuery {
   @Type(() => PaginationInput)
   @IsOptional()
   pagination: PaginationInput;
+
+  @IsOptional()
+  @IsString()
+  userUuid: string;
 }
 
 export class CreateWishlistDto {
