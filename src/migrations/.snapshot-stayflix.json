@@ -393,6 +393,145 @@
           "length": null,
           "mappedType": "datetime"
         },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(10,2)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "precision": 10,
+          "scale": 2,
+          "mappedType": "decimal"
+        },
+        "channel": {
+          "name": "channel",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "longtext",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": null,
+          "mappedType": "unknown"
+        },
+        "type": {
+          "name": "type",
+          "type": "enum('INCOMING','OUTGOING')",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "enumItems": [
+            "INCOMING",
+            "OUTGOING"
+          ],
+          "mappedType": "enum"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "enum('NGN')",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "default": "'NGN'",
+          "enumItems": [
+            "NGN"
+          ],
+          "mappedType": "enum"
+        }
+      },
+      "name": "payments",
+      "indexes": [
+        {
+          "keyName": "PRIMARY",
+          "columnNames": [
+            "uuid"
+          ],
+          "composite": false,
+          "constraint": true,
+          "primary": true,
+          "unique": true
+        }
+      ],
+      "checks": [],
+      "foreignKeys": {},
+      "nativeEnums": {}
+    },
+    {
+      "columns": {
+        "uuid": {
+          "name": "uuid",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": 255,
+          "mappedType": "string"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "datetime",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": null,
+          "default": "CURRENT_TIMESTAMP",
+          "mappedType": "datetime"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "datetime",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "length": null,
+          "default": "CURRENT_TIMESTAMP",
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "datetime",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": null,
+          "mappedType": "datetime"
+        },
         "full_name": {
           "name": "full_name",
           "type": "varchar(255)",
@@ -1433,6 +1572,16 @@
           "length": 255,
           "mappedType": "string"
         },
+        "payment": {
+          "name": "payment",
+          "type": "varchar(255)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "length": 255,
+          "mappedType": "string"
+        },
         "start_date": {
           "name": "start_date",
           "type": "datetime",
@@ -1548,6 +1697,16 @@
           "unique": false
         },
         {
+          "columnNames": [
+            "payment"
+          ],
+          "composite": false,
+          "keyName": "bookings_payment_index",
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
+        {
           "keyName": "PRIMARY",
           "columnNames": [
             "uuid"
@@ -1583,6 +1742,19 @@
             "uuid"
           ],
           "referencedTableName": "users",
+          "deleteRule": "set null",
+          "updateRule": "cascade"
+        },
+        "bookings_payment_foreign": {
+          "constraintName": "bookings_payment_foreign",
+          "columnNames": [
+            "payment"
+          ],
+          "localTableName": "bookings",
+          "referencedColumnNames": [
+            "uuid"
+          ],
+          "referencedTableName": "payments",
           "deleteRule": "set null",
           "updateRule": "cascade"
         }
@@ -1783,8 +1955,8 @@
           "length": null,
           "mappedType": "datetime"
         },
-        "title": {
-          "name": "title",
+        "user": {
+          "name": "user",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
@@ -1793,8 +1965,8 @@
           "length": 255,
           "mappedType": "string"
         },
-        "user": {
-          "name": "user",
+        "apartment": {
+          "name": "apartment",
           "type": "varchar(255)",
           "unsigned": false,
           "autoincrement": false,
@@ -1812,6 +1984,16 @@
           ],
           "composite": false,
           "keyName": "wishlist_user_index",
+          "constraint": false,
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "apartment"
+          ],
+          "composite": false,
+          "keyName": "wishlist_apartment_index",
           "constraint": false,
           "primary": false,
           "unique": false
@@ -1841,140 +2023,13 @@
           "referencedTableName": "users",
           "deleteRule": "set null",
           "updateRule": "cascade"
-        }
-      },
-      "nativeEnums": {}
-    },
-    {
-      "columns": {
-        "uuid": {
-          "name": "uuid",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": 255,
-          "mappedType": "string"
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "datetime",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": null,
-          "default": "CURRENT_TIMESTAMP",
-          "mappedType": "datetime"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "datetime",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "length": null,
-          "default": "CURRENT_TIMESTAMP",
-          "mappedType": "datetime"
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "datetime",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": null,
-          "mappedType": "datetime"
-        },
-        "wishlist": {
-          "name": "wishlist",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 255,
-          "mappedType": "string"
-        },
-        "apartment": {
-          "name": "apartment",
-          "type": "varchar(255)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "length": 255,
-          "mappedType": "string"
-        }
-      },
-      "name": "wishlisted_apartments",
-      "indexes": [
-        {
-          "columnNames": [
-            "wishlist"
-          ],
-          "composite": false,
-          "keyName": "wishlisted_apartments_wishlist_index",
-          "constraint": false,
-          "primary": false,
-          "unique": false
-        },
-        {
+        "wishlist_apartment_foreign": {
+          "constraintName": "wishlist_apartment_foreign",
           "columnNames": [
             "apartment"
           ],
-          "composite": false,
-          "keyName": "wishlisted_apartments_apartment_index",
-          "constraint": false,
-          "primary": false,
-          "unique": false
-        },
-        {
-          "keyName": "wishlisted_apartments_wishlist_apartment_unique",
-          "columnNames": [
-            "wishlist",
-            "apartment"
-          ],
-          "composite": true,
-          "constraint": true,
-          "primary": false,
-          "unique": true
-        },
-        {
-          "keyName": "PRIMARY",
-          "columnNames": [
-            "uuid"
-          ],
-          "composite": false,
-          "constraint": true,
-          "primary": true,
-          "unique": true
-        }
-      ],
-      "checks": [],
-      "foreignKeys": {
-        "wishlisted_apartments_wishlist_foreign": {
-          "constraintName": "wishlisted_apartments_wishlist_foreign",
-          "columnNames": [
-            "wishlist"
-          ],
-          "localTableName": "wishlisted_apartments",
-          "referencedColumnNames": [
-            "uuid"
-          ],
-          "referencedTableName": "wishlist",
-          "deleteRule": "set null",
-          "updateRule": "cascade"
-        },
-        "wishlisted_apartments_apartment_foreign": {
-          "constraintName": "wishlisted_apartments_apartment_foreign",
-          "columnNames": [
-            "apartment"
-          ],
-          "localTableName": "wishlisted_apartments",
+          "localTableName": "wishlist",
           "referencedColumnNames": [
             "uuid"
           ],

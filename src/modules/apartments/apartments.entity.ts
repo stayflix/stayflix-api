@@ -239,6 +239,39 @@ export enum BookingStatus {
   cond: { deletedAt: null },
   default: true,
 })
+@Entity({ tableName: 'payments' })
+export class Payment extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @Property({ nullable: true })
+  transactionId: string;
+
+  @Property({ nullable: true })
+  status: string;
+
+  @Property({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  amount: number;
+
+  @Property({ nullable: true })
+  channel: string;
+
+  @Property({ type: 'longtext', nullable: true })
+  metadata: string;
+
+  @Enum({ items: () => PaymentType })
+  type: PaymentType;
+
+  @Enum({ items: () => Currencies, default: Currencies.NGN })
+  currency: Currencies;
+}
+
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
 @Entity({ tableName: 'bookings' })
 export class Bookings extends Timestamp {
   @PrimaryKey()
@@ -318,36 +351,4 @@ export class Wishlist extends Timestamp {
     nullable: true,
   })
   apartment?: Apartments;
-}
-
-@Filter({
-  name: 'notDeleted',
-  cond: { deletedAt: null },
-  default: true,
-})
-@Entity({ tableName: 'payments' })
-export class Payment extends Timestamp {
-  @PrimaryKey()
-  uuid: string;
-
-  @Property({ nullable: true })
-  transactionId: string;
-
-  @Property({ nullable: true })
-  status: string;
-
-  @Property({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  amount: number;
-
-  @Property({ nullable: true })
-  channel: string;
-
-  @Property({ type: 'longtext', nullable: true })
-  metadata: string;
-
-  @Enum({ items: () => PaymentType })
-  type: PaymentType;
-
-  @Enum({ items: () => Currencies, default: Currencies.NGN })
-  currency: Currencies;
 }
