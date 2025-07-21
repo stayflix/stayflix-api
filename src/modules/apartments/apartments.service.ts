@@ -7,7 +7,10 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -17,7 +20,12 @@ import {
   CreateDraftApartmentDto,
   CreateWishlistDto,
 } from './apartments.dto';
-import { ApartmentStatus, IAuthContext } from 'src/types';
+import {
+  ApartmentStatus,
+  Currencies,
+  IAuthContext,
+  PaymentType,
+} from 'src/types';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import {
   ApartmentReviews,
@@ -25,6 +33,7 @@ import {
   Bookings,
   BookingStatus,
   PayIn,
+  Payment,
   PayOut,
   SupportTicket,
   Wishlist,
@@ -39,6 +48,9 @@ import {
   SupportTicketQueryDto,
   UpdateApartmentDto,
 } from '../admin/admin.dto';
+import { PaystackConfiguration } from 'src/config/configuration';
+import { ConfigType } from '@nestjs/config';
+import axios from 'axios';
 
 @Injectable()
 export class ApartmentService {
@@ -52,6 +64,10 @@ export class ApartmentService {
     private readonly wishlistRepository: EntityRepository<Wishlist>,
     @InjectRepository(Bookings)
     private readonly bookingsRepository: EntityRepository<Bookings>,
+    @InjectRepository(Payment)
+    private readonly paymentRepository: EntityRepository<Payment>,
+    @Inject(PaystackConfiguration.KEY)
+    private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
   ) {}
 
   async getBookings({ status, sort, page = 1, limit = 10 }: BookingFilterDto) {
@@ -158,14 +174,36 @@ export class ApartmentService {
 
   async bookApartment(
     apartmentUuid: string,
-    { startDate, endDate }: BookApartmentDto,
+    { startDate, endDate, transactionId }: BookApartmentDto,
     { uuid }: IAuthContext,
   ) {
+    const transResponse = await axios
+      .get(
+        `${this.paystackConfig.baseUrl}/transaction/verify/${encodeURIComponent(transactionId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.paystackConfig.secretKey}`,
+          },
+        },
+      )
+      .catch((error) => {
+        console.log(error.response);
+        throw new InternalServerErrorException(
+          `An error occurred while trying to verify the transaction with paystack. Error: ${error}`,
+        );
+      });
+    const paymentData = transResponse.data.data;
+    if (paymentData.status.toLowerCase() !== 'success') {
+      throw new ForbiddenException(`Transaction was not successful`);
+    }
     const apartment = await this.apartmentsRepository.findOne({
       uuid: apartmentUuid,
     });
     if (!apartment || !apartment.published) {
       throw new BadRequestException('Apartment not available');
+    }
+    if (apartment.weekdayBasePrice !== +paymentData.amount / 100) {
+      throw new ForbiddenException(`Amount paid must match apartment price`);
     }
     const conflictingBooking = await this.bookingsRepository.findOne({
       apartment: { uuid: apartment.uuid },
@@ -182,9 +220,21 @@ export class ApartmentService {
         'Apartment already booked for selected dates',
       );
     }
+    const paymentUuid = v4();
+    const paymentModel = this.paymentRepository.create({
+      uuid: paymentUuid,
+      transactionId: transactionId.toString(),
+      metadata: JSON.stringify(paymentData),
+      type: PaymentType.INCOMING,
+      amount: apartment.weekdayBasePrice,
+      channel: paymentData.paymentMethod,
+      status: 'success',
+      currency: Currencies.NGN,
+    });
     const booking = this.bookingsRepository.create({
       uuid: v4(),
       apartment: this.apartmentsRepository.getReference(apartmentUuid),
+      payment: this.paymentRepository.getReference(paymentUuid),
       user: this.usersRepository.getReference(uuid),
       startDate,
       endDate,
@@ -196,6 +246,7 @@ export class ApartmentService {
       ),
     });
     this.em.persist(booking);
+    this.em.persist(paymentModel);
     await this.em.flush();
     return {
       status: true,
@@ -294,65 +345,73 @@ export class ApartmentService {
     const { page = 1, limit = 20 } = pagination;
     const offset = limit * (page - 1);
 
-    const params: any = {
-      search: search || null,
-      searchLike: search ? `%${search}%` : null,
-      apartmentType: filter?.apartmentType || null,
-      limit,
-      offset,
-      userUuid: userUuid || null,
-    };
+    const whereClauses: string[] = [];
+    const params: any[] = [];
 
-    let sql = '';
+    if (search) {
+      whereClauses.push('a.title LIKE ?');
+      params.push(`%${search}%`);
+    }
+
+    if (filter?.apartmentType) {
+      whereClauses.push('a.apartment_type = ?');
+      params.push(filter.apartmentType);
+    }
+
+    const whereSql =
+      whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    let sql: string;
+
     if (userUuid) {
       sql = `
       SELECT
         a.*,
-        CASE WHEN w.uuid IS NOT NULL THEN true ELSE false END AS "isWishlisted"
+        CASE WHEN w.uuid IS NOT NULL THEN true ELSE false END AS isWishlisted
       FROM apartments a
       LEFT JOIN wishlist w
         ON w.apartment_uuid = a.uuid
-       AND w.user_uuid = :userUuid
-      WHERE
-        (:search IS NULL OR a.title ILIKE :searchLike)
-        AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
-      ORDER BY a."created_at" DESC
-      LIMIT :limit OFFSET :offset
+       AND w.user_uuid = ?
+      ${whereSql ? ' ' + whereSql : ''}
+      ORDER BY a.created_at DESC
+      LIMIT ? OFFSET ?
     `;
+      params.push(userUuid);
     } else {
       sql = `
       SELECT
         a.*,
-        false AS "isWishlisted"
+        false AS isWishlisted
       FROM apartments a
-      WHERE
-        (:search IS NULL OR a.title ILIKE :searchLike)
-        AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
-      ORDER BY a."created_at" DESC
-      LIMIT :limit OFFSET :offset
+      ${whereSql ? ' ' + whereSql : ''}
+      ORDER BY a.created_at DESC
+      LIMIT ? OFFSET ?
     `;
     }
 
+    // Append LIMIT and OFFSET at the end of params
+    params.push(Number(limit), Number(offset));
+
+    // Count query params only use filtering (exclude limit/offset and userUuid)
+    const countParams = userUuid
+      ? params.slice(0, params.length - 3)
+      : params.slice(0, params.length - 2);
+
     const countSql = `
-    SELECT COUNT(*)::int AS total
+    SELECT COUNT(*) AS total
     FROM apartments a
-    WHERE
-      (:search IS NULL OR a.title ILIKE :searchLike)
-      AND (:apartmentType IS NULL OR a.apartment_type = :apartmentType)
+    ${whereSql ? ' ' + whereSql : ''}
   `;
 
     const conn = this.em.getConnection();
     const [apartments, totalResult] = await Promise.all([
       conn.execute(sql, params),
-      conn.execute(countSql, params),
+      conn.execute(countSql, countParams),
     ]);
 
     const total = totalResult[0]?.total || 0;
 
-    return buildResponseDataWithPagination(apartments, total, {
-      page,
-      limit,
-    });
+    return buildResponseDataWithPagination(apartments, total, { page, limit });
   }
 
   async fetchMyApartments(

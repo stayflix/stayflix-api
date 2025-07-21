@@ -7,9 +7,12 @@ import {
   ApartmentReviews,
   Apartments,
   Bookings,
+  Payment,
   Wishlist,
 } from './apartments.entity';
 import { BlacklistedTokens, Users } from '../users/users.entity';
+import { ConfigModule } from '@nestjs/config';
+import { PaystackConfiguration } from 'src/config/configuration';
 
 @Module({
   imports: [
@@ -21,8 +24,10 @@ import { BlacklistedTokens, Users } from '../users/users.entity';
         Users,
         ApartmentReviews,
         Bookings,
+        Payment,
       ],
     }),
+    ConfigModule.forFeature(PaystackConfiguration),
   ],
   controllers: [MyApartmentsController, ApartmentsController],
   providers: [ApartmentService],

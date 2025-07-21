@@ -45,6 +45,15 @@ export enum RegistrationType {
   MOBILE = 'MOBILE',
 }
 
+export enum PaymentType {
+  INCOMING = 'INCOMING',
+  OUTGOING = 'OUTGOING',
+}
+
+export enum Currencies {
+  NGN = 'NGN',
+}
+
 export interface IEmailDto {
   templateCode: string;
   to?: string;

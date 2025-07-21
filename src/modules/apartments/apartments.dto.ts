@@ -185,4 +185,7 @@ export class BookApartmentDto {
 
   @IsDateString()
   endDate: string;
+
+  @IsString()
+  transactionId: string;
 }
