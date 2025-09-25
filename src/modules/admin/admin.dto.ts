@@ -11,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApartmentStatus } from 'src/types';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AdminLoginDTO {
   @IsString()
@@ -37,10 +38,12 @@ export class AdminUserDto {
 export class BookingFilterDto {
   @IsOptional()
   @IsIn(['all', 'checked_in', 'booked'])
+  @ApiPropertyOptional({ enum: ['all', 'checked_in', 'booked'], example: 'all' })
   status?: 'all' | 'checked_in' | 'booked';
 
   @IsOptional()
   @IsIn(['date_desc', 'date_asc', 'amount_desc', 'amount_asc', 'status'])
+  @ApiPropertyOptional({ enum: ['date_desc', 'date_asc', 'amount_desc', 'amount_asc', 'status'], example: 'date_desc' })
   sort?: string;
 
   @Type(() => Number)
@@ -75,15 +78,18 @@ export class UserListQueryDto {
 
   @IsOptional()
   @IsIn(['name', 'email'])
+  @ApiPropertyOptional({ enum: ['name', 'email'], example: 'name' })
   sortBy?: 'name' | 'email';
 
   @IsOptional()
   @IsIn(['asc', 'desc'])
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], example: 'desc' })
   order?: 'asc' | 'desc';
 }
 
 export class UpdateApartmentStatusDto {
   @IsEnum(ApartmentStatus)
+  @ApiPropertyOptional({ enum: ApartmentStatus, enumName: 'ApartmentStatus', example: ApartmentStatus.AVAILABLE })
   status: ApartmentStatus;
 }
 
@@ -126,6 +132,7 @@ export class UpdateApartmentBulkStatusDto {
   uuids: string[];
 
   @IsEnum(ApartmentStatus)
+  @ApiPropertyOptional({ enum: ApartmentStatus, enumName: 'ApartmentStatus', example: ApartmentStatus.PENDING })
   status: ApartmentStatus;
 }
 
@@ -151,6 +158,7 @@ export enum TicketStatus {
 export class SupportTicketQueryDto {
   @IsOptional()
   @IsEnum(TicketStatus)
+  @ApiPropertyOptional({ enum: TicketStatus, enumName: 'TicketStatus', example: TicketStatus.PENDING })
   status?: TicketStatus;
 
   @IsOptional()

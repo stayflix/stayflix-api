@@ -28,7 +28,10 @@ async function bootstrap() {
     .setTitle('Stayflix')
     .setDescription('API documentation for Stayflix')
     .setVersion('1.0')
-    .addBearerAuth({ type: 'http' })
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'JWT access token in the Authorization header using the Bearer scheme.' },
+      'bearer',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, options, {

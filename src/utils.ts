@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { Request } from 'express';
 import otpGenerator from 'otp-generator';
 import { BasePaginatedResponseDto } from './base/dto';
 

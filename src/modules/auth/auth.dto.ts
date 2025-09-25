@@ -1,5 +1,6 @@
 import { IsEmail, IsEnum, IsOptional, IsString, Length } from 'class-validator';
 import { OTPActionType } from 'src/types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SignupStepOneDto {
   @IsEmail()
@@ -60,6 +61,7 @@ export class VerifyOtpDto {
   userUuid: string;
 
   @IsEnum(OTPActionType)
+  @ApiProperty({ enum: OTPActionType, enumName: 'OTPActionType', example: OTPActionType.VERIFY_ACCOUNT })
   otpActionType: OTPActionType;
 }
 
@@ -68,6 +70,7 @@ export class SendOtpDto {
   userUuid: string;
 
   @IsEnum(OTPActionType)
+  @ApiProperty({ enum: OTPActionType, enumName: 'OTPActionType', example: OTPActionType.RESET_PASSWORD })
   otpActionType: OTPActionType;
 }
 

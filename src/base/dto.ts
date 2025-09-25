@@ -6,6 +6,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { OrderDir } from 'src/types';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PaginationInput {
   @IsOptional()
@@ -21,6 +22,7 @@ export class PaginationInput {
 
   @IsOptional()
   @IsEnum(OrderDir)
+  @ApiPropertyOptional({ enum: OrderDir, enumName: 'OrderDir', example: OrderDir.DESC })
   orderDir?: OrderDir;
 }
 

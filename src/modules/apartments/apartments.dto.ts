@@ -13,7 +13,9 @@ import {
   FirstReservationType,
   ReservationType,
   SpaceTypeAvailable,
+  ApartmentStatus,
 } from 'src/types';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateApartmentDto {
   @IsString()
@@ -24,6 +26,7 @@ export class CreateApartmentDto {
   apartmentType: string;
 
   @IsEnum(SpaceTypeAvailable)
+  @ApiProperty({ enum: SpaceTypeAvailable, enumName: 'SpaceTypeAvailable', example: SpaceTypeAvailable.ENTIRE_PLACE })
   spaceTypeAvailable: SpaceTypeAvailable;
 
   @IsString()
@@ -57,15 +60,18 @@ export class CreateApartmentDto {
   description: string;
 
   @IsEnum(ReservationType)
+  @ApiProperty({ enum: ReservationType, enumName: 'ReservationType', example: ReservationType.INSTANT_BOOK })
   reservationType: ReservationType;
 
   @IsEnum(FirstReservationType)
+  @ApiProperty({ enum: FirstReservationType, enumName: 'FirstReservationType', example: FirstReservationType.GUEST })
   firstReservationType: FirstReservationType;
 
   @IsNumber()
   weekdayBasePrice: number;
 
   @IsEnum(DiscountType, { each: true })
+  @ApiProperty({ enum: DiscountType, enumName: 'DiscountType', isArray: true, example: [DiscountType.NEW_LISTING, DiscountType.WEEKLY] })
   allowedDiscounts: DiscountType[];
 }
 
@@ -80,6 +86,7 @@ export class CreateDraftApartmentDto {
 
   @IsEnum(SpaceTypeAvailable)
   @IsOptional()
+  @ApiPropertyOptional({ enum: SpaceTypeAvailable, enumName: 'SpaceTypeAvailable', example: SpaceTypeAvailable.ENTIRE_PLACE })
   spaceTypeAvailable: SpaceTypeAvailable;
 
   @IsString()
@@ -124,10 +131,12 @@ export class CreateDraftApartmentDto {
 
   @IsEnum(ReservationType)
   @IsOptional()
+  @ApiPropertyOptional({ enum: ReservationType, enumName: 'ReservationType', example: ReservationType.INSTANT_BOOK })
   reservationType: ReservationType;
 
   @IsEnum(FirstReservationType)
   @IsOptional()
+  @ApiPropertyOptional({ enum: FirstReservationType, enumName: 'FirstReservationType', example: FirstReservationType.GUEST })
   firstReservationType: FirstReservationType;
 
   @IsNumber()
@@ -136,12 +145,14 @@ export class CreateDraftApartmentDto {
 
   @IsEnum(DiscountType, { each: true })
   @IsOptional()
+  @ApiPropertyOptional({ enum: DiscountType, enumName: 'DiscountType', isArray: true, example: [DiscountType.NEW_LISTING, DiscountType.WEEKLY] })
   allowedDiscounts: DiscountType[];
 }
 
 export class ApartmentFilter {
   @IsString()
   @IsOptional()
+  @ApiPropertyOptional({ enum: ApartmentStatus, enumName: 'ApartmentStatus', example: ApartmentStatus.AVAILABLE })
   status: string;
 
   @IsString()
