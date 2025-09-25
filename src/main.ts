@@ -37,7 +37,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options, {
     extraModels: [BasePaginatedResponseDto],
   });
-  SwaggerModule.setup('api-docs/', app, document);
+  SwaggerModule.setup('api-docs/', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   await app.listen(process.env.PORT || 8080, () => {
     new Logger().log(`API is started on PORT ${process.env.PORT || 8080}...`);

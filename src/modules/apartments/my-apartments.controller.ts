@@ -10,7 +10,15 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/guards/jwt-auth-guard';
 import { ApartmentService } from './apartments.service';
 import {
@@ -50,6 +58,13 @@ export class MyApartmentsController {
   @Get()
   @ApiOperation({ summary: 'List my apartments', description: 'Returns the authenticated user apartments with pagination and optional search/filter.' })
   @ApiOkResponse({ description: 'Paginated list of apartments', schema: { type: 'object' } })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'pagination[page]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[limit]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[orderBy]', required: false, type: String })
+  @ApiQuery({ name: 'pagination[orderDir]', required: false, enum: ['ASC', 'DESC'] })
+  @ApiQuery({ name: 'filter[status]', required: false, enum: ['PENDING', 'AVAILABLE'] })
+  @ApiQuery({ name: 'filter[apartmentType]', required: false, type: String })
   fetchMyApartments(@Query() query: MyApartmentQuery, @Req() req: Request) {
     return this.apartmentService.fetchMyApartments(
       query.filter,

@@ -11,18 +11,21 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 export class PaginationInput {
   @IsOptional()
   @IsNumberString()
+  @ApiPropertyOptional({ name: 'pagination[limit]', type: Number })
   limit?: number;
 
   @IsOptional()
   @IsNumberString()
+  @ApiPropertyOptional({ name: 'pagination[page]', type: Number })
   page?: number;
 
   @IsOptional()
+  @ApiPropertyOptional({ name: 'pagination[orderBy]', type: String })
   orderBy?: string = '';
 
   @IsOptional()
   @IsEnum(OrderDir)
-  @ApiPropertyOptional({ enum: OrderDir, enumName: 'OrderDir', example: OrderDir.DESC })
+  @ApiPropertyOptional({ name: 'pagination[orderDir]', enum: OrderDir, enumName: 'OrderDir', example: OrderDir.DESC })
   orderDir?: OrderDir;
 }
 

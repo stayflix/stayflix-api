@@ -152,11 +152,17 @@ export class CreateDraftApartmentDto {
 export class ApartmentFilter {
   @IsString()
   @IsOptional()
-  @ApiPropertyOptional({ enum: ApartmentStatus, enumName: 'ApartmentStatus', example: ApartmentStatus.AVAILABLE })
+  @ApiPropertyOptional({
+    name: 'filter[status]',
+    enum: ApartmentStatus,
+    enumName: 'ApartmentStatus',
+    example: ApartmentStatus.AVAILABLE,
+  })
   status: string;
 
   @IsString()
   @IsOptional()
+  @ApiPropertyOptional({ name: 'filter[apartmentType]', type: String })
   apartmentType: string;
 }
 
