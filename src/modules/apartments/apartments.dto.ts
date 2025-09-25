@@ -164,19 +164,23 @@ export class MyApartmentQuery {
   @ValidateNested()
   @Type(() => ApartmentFilter)
   @IsOptional()
+  @ApiPropertyOptional({ type: ApartmentFilter })
   filter: ApartmentFilter;
 
   @IsString()
   @IsOptional()
+  @ApiPropertyOptional({ type: String })
   search: string;
 
   @ValidateNested()
   @Type(() => PaginationInput)
   @IsOptional()
+  @ApiPropertyOptional({ type: PaginationInput })
   pagination: PaginationInput;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ type: String })
   userUuid: string;
 }
 
