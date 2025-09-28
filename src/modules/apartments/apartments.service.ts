@@ -275,6 +275,52 @@ export class ApartmentService {
     );
   }
 
+  async fetchMyBookings(
+    pagination: PaginationInput = {} as PaginationInput,
+    { uuid }: IAuthContext,
+  ) {
+    const { page = 1, limit = 20, orderBy, orderDir } = pagination;
+    const [bookings, total] = await this.bookingsRepository.findAndCount(
+      {
+        user: { uuid },
+        isCancelled: false,
+      },
+      {
+        populate: ['apartment'],
+        limit,
+        offset: limit * (page - 1),
+        orderBy: orderBy
+          ? { [orderBy]: orderDir || QueryOrder.DESC }
+          : { startDate: QueryOrder.DESC },
+      },
+    );
+
+    const data = bookings.map((booking) => ({
+      uuid: booking.uuid,
+      startDate: booking.startDate,
+      endDate: booking.endDate,
+      totalAmount: booking.totalAmount,
+      status: booking.status,
+      reservationType: booking.reservationType,
+      isPaidOut: booking.isPaidOut,
+      isCancelled: booking.isCancelled,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt,
+      apartment: booking.apartment
+        ? {
+            uuid: booking.apartment.uuid,
+            title: booking.apartment.title,
+            address: booking.apartment.address,
+            city: booking.apartment.city,
+            apartmentType: booking.apartment.apartmentType,
+            photos: booking.apartment.photos,
+          }
+        : null,
+    }));
+
+    return buildResponseDataWithPagination(data, total, { page, limit });
+  }
+
   async removeFromWishlist(apartmentUuid: string, { uuid }: IAuthContext) {
     const wishlist = await this.wishlistRepository.findOne({
       user: { uuid },

@@ -1,5 +1,10 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ApartmentService } from './apartments.service';
 import { ApartmentFilter, MyApartmentQuery } from './apartments.dto';
 
@@ -10,11 +15,14 @@ export class ApartmentsController {
 
   @Get()
   @ApiOperation({ summary: 'List apartments', description: 'Returns paginated apartments, filterable by status and type.' })
-  @ApiQuery({ name: 'pagination[page]', required: true, type: Number })
-  @ApiQuery({ name: 'pagination[limit]', required: true, type: Number })
-  @ApiQuery({ name: 'filter', type: ApartmentFilter, required: false })
-  @ApiQuery({ name: 'search', type: String, required: false })
-  @ApiQuery({ name: 'userUuid', type: String, required: false })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'userUuid', required: false, type: String })
+  @ApiQuery({ name: 'pagination[page]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[limit]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[orderBy]', required: false, type: String })
+  @ApiQuery({ name: 'pagination[orderDir]', required: false, enum: ['ASC', 'DESC'] })
+  @ApiQuery({ name: 'filter[status]', required: false, enum: ['PENDING', 'AVAILABLE'] })
+  @ApiQuery({ name: 'filter[apartmentType]', required: false, type: String })
   @ApiOkResponse({ description: 'Paginated apartments list', schema: { type: 'object' } })
   fetchApartments(@Query() query: MyApartmentQuery) {
     return this.apartmentService.fetchApartments(

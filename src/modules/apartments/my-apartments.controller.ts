@@ -28,6 +28,7 @@ import {
   CreateDraftApartmentDto,
   CreateWishlistDto,
   MyApartmentQuery,
+  MyBookingsQuery,
 } from './apartments.dto';
 import { Request } from 'express';
 
@@ -74,6 +75,30 @@ export class MyApartmentsController {
     );
   }
 
+  @Get('wishlist')
+  @ApiOperation({ summary: 'List wishlist', description: 'Returns the wishlist items of the authenticated user.' })
+  @ApiOkResponse({ description: 'Wishlist items', schema: { type: 'object' } })
+  fetchWishlistItems(@Req() req: Request) {
+    return this.apartmentService.fetchWishlistItems(req.user as any);
+  }
+
+  @Get('bookings')
+  @ApiOperation({
+    summary: 'List my bookings',
+    description: 'Returns the apartments booked by the authenticated user with pagination.',
+  })
+  @ApiOkResponse({ description: 'Paginated bookings list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'pagination[page]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[limit]', required: false, type: Number })
+  @ApiQuery({ name: 'pagination[orderBy]', required: false, type: String })
+  @ApiQuery({ name: 'pagination[orderDir]', required: false, enum: ['ASC', 'DESC'] })
+  fetchMyBookings(@Query() query: MyBookingsQuery, @Req() req: Request) {
+    return this.apartmentService.fetchMyBookings(
+      query.pagination,
+      req.user as any,
+    );
+  }
+
   @Get(':uuid')
   @ApiOperation({ summary: 'Get my apartment', description: 'Gets an apartment by UUID created by the authenticated user.' })
   @ApiOkResponse({ description: 'Apartment details', schema: { type: 'object' } })
@@ -97,13 +122,6 @@ export class MyApartmentsController {
   @ApiOkResponse({ description: 'Apartment deleted' })
   deleteApartment(@Param('uuid') uuid: string, @Req() req: Request) {
     return this.apartmentService.deleteApartment(uuid, req.user as any);
-  }
-
-  @Get('wishlist')
-  @ApiOperation({ summary: 'List wishlist', description: 'Returns the wishlist items of the authenticated user.' })
-  @ApiOkResponse({ description: 'Wishlist items', schema: { type: 'object' } })
-  fetchWishlistItems(@Req() req: Request) {
-    return this.apartmentService.fetchWishlistItems(req.user as any);
   }
 
   @Post(':uuid/add-to-wishlist')

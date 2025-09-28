@@ -81,6 +81,14 @@ export class AdminController {
   @Get('bookings')
   @ApiOperation({ summary: 'List bookings', description: 'Returns bookings with optional filters and pagination.' })
   @ApiOkResponse({ description: 'Bookings list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'status', required: false, enum: ['all', 'checked_in', 'booked'] })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['date_desc', 'date_asc', 'amount_desc', 'amount_asc', 'status'],
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   async getBookings(@Query() query: dtos.BookingFilterDto) {
     return this.apartmentService.getBookings(query);
   }
@@ -88,6 +96,11 @@ export class AdminController {
   @Get('users')
   @ApiOperation({ summary: 'List users', description: 'Returns paginated users with optional filters.' })
   @ApiOkResponse({ description: 'Users list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sortBy', required: false, enum: ['name', 'email'] })
+  @ApiQuery({ name: 'order', required: false, enum: ['asc', 'desc'] })
   async getUsers(@Query() query: dtos.UserListQueryDto) {
     return this.userService.getPaginatedUsers(query);
   }
@@ -104,6 +117,13 @@ export class AdminController {
   @Get('apartments')
   @ApiOperation({ summary: 'List apartments', description: 'Returns admin apartments list with filters.' })
   @ApiOkResponse({ description: 'Apartments list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'AVAILABLE'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['price_asc', 'price_desc', 'recent'],
+  })
   async getApartments(@Query() query: any) {
     return this.apartmentService.getApartments(query);
   }
@@ -165,6 +185,9 @@ export class AdminController {
   @Get('payments/pay-ins')
   @ApiOperation({ summary: 'List pay-ins', description: 'Gets pay-in transactions with filters.' })
   @ApiOkResponse({ description: 'Pay-ins list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'dateFrom', required: false, type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'dateTo', required: false, type: String, example: '2025-12-31' })
   getPayIns(@Query() query: dtos.PaymentQueryDto) {
     return this.apartmentService.getPayIns(query);
   }
@@ -172,6 +195,9 @@ export class AdminController {
   @Get('payments/pay-outs')
   @ApiOperation({ summary: 'List pay-outs', description: 'Gets pay-out transactions with filters.' })
   @ApiOkResponse({ description: 'Pay-outs list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'dateFrom', required: false, type: String, example: '2025-01-01' })
+  @ApiQuery({ name: 'dateTo', required: false, type: String, example: '2025-12-31' })
   getPayOuts(@Query() query: dtos.PaymentQueryDto) {
     return this.apartmentService.getPayOuts(query);
   }
@@ -179,6 +205,8 @@ export class AdminController {
   @Get('support-tickets')
   @ApiOperation({ summary: 'List support tickets', description: 'Gets support tickets with filters.' })
   @ApiOkResponse({ description: 'Support tickets list', schema: { type: 'object' } })
+  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'resolved'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
   getTickets(@Query() query: dtos.SupportTicketQueryDto) {
     return this.apartmentService.getTickets(query);
   }

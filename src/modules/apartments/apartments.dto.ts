@@ -7,7 +7,7 @@ import {
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { PaginationInput } from 'src/base/dto';
+import { PaginationInput, PaginationQuery } from 'src/base/dto';
 import {
   DiscountType,
   FirstReservationType,
@@ -199,6 +199,8 @@ export class AddToWishlistDto {
   @IsString()
   uuid: string;
 }
+
+export class MyBookingsQuery extends PaginationQuery {}
 
 export class BookApartmentDto {
   @IsDateString()
