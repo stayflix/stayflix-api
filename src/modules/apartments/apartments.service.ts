@@ -1,13 +1,14 @@
 import {
   EntityManager,
   EntityRepository,
-  FindOptions,
   QueryOrder,
+  wrap,
 } from '@mikro-orm/core';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -18,7 +19,6 @@ import {
   BookApartmentDto,
   CreateApartmentDto,
   CreateDraftApartmentDto,
-  CreateWishlistDto,
 } from './apartments.dto';
 import {
   ApartmentStatus,
@@ -177,6 +177,12 @@ export class ApartmentService {
     { startDate, endDate, transactionId }: BookApartmentDto,
     { uuid }: IAuthContext,
   ) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new BadRequestException('Invalid booking dates supplied');
+    }
+
     const transResponse = await axios
       .get(
         `${this.paystackConfig.baseUrl}/transaction/verify/${encodeURIComponent(transactionId)}`,
@@ -187,7 +193,16 @@ export class ApartmentService {
         },
       )
       .catch((error) => {
-        console.log(error.response);
+        const paystackResponse = error.response;
+        if (paystackResponse) {
+          const { status } = paystackResponse;
+          const message =
+            paystackResponse.data?.message ??
+            paystackResponse.data?.status ??
+            paystackResponse.statusText ??
+            'Paystack verification failed';
+          throw new HttpException(message, status);
+        }
         throw new InternalServerErrorException(
           `An error occurred while trying to verify the transaction with paystack. Error: ${error}`,
         );
@@ -196,22 +211,24 @@ export class ApartmentService {
     if (paymentData.status.toLowerCase() !== 'success') {
       throw new ForbiddenException(`Transaction was not successful`);
     }
-    const apartment = await this.apartmentsRepository.findOne({
-      uuid: apartmentUuid,
-    });
-    if (!apartment || !apartment.published) {
+    const apartment = await this.findApartmentOrThrow(apartmentUuid);
+    if (!apartment.published) {
       throw new BadRequestException('Apartment not available');
     }
-    if (apartment.weekdayBasePrice !== +paymentData.amount / 100) {
-      throw new ForbiddenException(`Amount paid must match apartment price`);
+
+    const totalAmount = this.calculateTotalAmount(apartment, start, end);
+    const paidAmount = Number(paymentData.amount) / 100;
+    console.log(totalAmount, paidAmount);
+    if (paidAmount !== totalAmount) {
+      throw new ForbiddenException(`Amount paid must match booking total`);
     }
     const conflictingBooking = await this.bookingsRepository.findOne({
       apartment: { uuid: apartment.uuid },
       isCancelled: false,
       $or: [
         {
-          startDate: { $lte: endDate },
-          endDate: { $gte: startDate },
+          startDate: { $lte: end },
+          endDate: { $gte: start },
         },
       ],
     });
@@ -226,7 +243,7 @@ export class ApartmentService {
       transactionId: transactionId.toString(),
       metadata: JSON.stringify(paymentData),
       type: PaymentType.INCOMING,
-      amount: apartment.weekdayBasePrice,
+      amount: totalAmount,
       channel: paymentData.paymentMethod,
       status: 'success',
       currency: Currencies.NGN,
@@ -236,14 +253,10 @@ export class ApartmentService {
       apartment: this.apartmentsRepository.getReference(apartmentUuid),
       payment: this.paymentRepository.getReference(paymentUuid),
       user: this.usersRepository.getReference(uuid),
-      startDate,
-      endDate,
+      startDate: start,
+      endDate: end,
       reservationType: apartment.reservationType,
-      totalAmount: this.calculateTotalAmount(
-        apartment,
-        new Date(startDate),
-        new Date(endDate),
-      ),
+      totalAmount,
     });
     this.em.persist(booking);
     this.em.persist(paymentModel);
@@ -260,9 +273,11 @@ export class ApartmentService {
     start: Date,
     end: Date,
   ): number {
-    const diffInDays = Math.ceil(
-      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const diffInMs = end.getTime() - start.getTime();
+    if (diffInMs <= 0) {
+      throw new BadRequestException('End date must be after start date');
+    }
+    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
     return diffInDays * (apartment.weekdayBasePrice || 0);
   }
 
@@ -359,10 +374,7 @@ export class ApartmentService {
     apartmentUuid: string,
     userUuid?: string,
   ): Promise<Apartments> {
-    const apartment = await this.apartmentsRepository.findOne({
-      uuid: apartmentUuid,
-    });
-
+    const apartment = await this.findApartmentOrThrow(apartmentUuid);
     let isWishlisted = false;
 
     if (apartment && userUuid) {
@@ -374,12 +386,16 @@ export class ApartmentService {
       isWishlisted = !!wishlistEntry;
     }
 
-    return apartment
-      ? ({
-          ...apartment,
-          isWishlisted,
-        } as any)
-      : null;
+    return {
+      ...wrap(apartment).toObject(),
+      isWishlisted,
+    } as Apartments;
+  }
+
+  private async findApartmentOrThrow(uuid: string): Promise<Apartments> {
+    const apartment = await this.apartmentsRepository.findOne({ uuid });
+    if (!apartment) throw new NotFoundException('Apartment not found');
+    return apartment;
   }
 
   async fetchApartments(
@@ -649,14 +665,32 @@ export class ApartmentService {
   }
 
   async adminUpdateApartment(uuid: string, dto: UpdateApartmentDto) {
-    const apt = await this.getApartment(uuid);
-    this.em.assign(apt, dto);
+    if (!dto) {
+      throw new BadRequestException('No update payload provided');
+    }
+
+    const updates = Object.entries(dto).reduce(
+      (acc, [key, value]) => {
+        if (value !== undefined) {
+          (acc as any)[key] = value;
+        }
+        return acc;
+      },
+      {} as Partial<UpdateApartmentDto>,
+    );
+
+    if (Object.keys(updates).length === 0) {
+      throw new BadRequestException('No update payload provided');
+    }
+
+    const apt = await this.findApartmentOrThrow(uuid);
+    this.em.assign(apt, updates);
     await this.em.flush();
     return apt;
   }
 
   async updateApartmentStatus(uuid: string, status: ApartmentStatus) {
-    const apt = await this.getApartment(uuid);
+    const apt = await this.findApartmentOrThrow(uuid);
     apt.status = status;
     await this.em.flush();
     return apt;
@@ -672,7 +706,7 @@ export class ApartmentService {
   }
 
   async getReviews(uuid: string) {
-    const apartment = await this.getApartment(uuid);
+    const apartment = await this.findApartmentOrThrow(uuid);
 
     const reviews = await this.em.find(
       ApartmentReviews,

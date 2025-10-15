@@ -14,6 +14,7 @@ import {
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -149,6 +150,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Update apartment', description: 'Updates an apartment by UUID.' })
   @ApiParam({ name: 'uuid', type: String })
   @ApiOkResponse({ description: 'Updated apartment', schema: { type: 'object' } })
+  @ApiBody({
+    type: dtos.UpdateApartmentDto,
+    description: 'All fields optional; include only the ones that require changes.',
+  })
   async updateApartment(
     @Param('uuid') uuid: string,
     @Body() dto: dtos.UpdateApartmentDto,

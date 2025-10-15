@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsIn,
@@ -96,35 +97,48 @@ export class UpdateApartmentStatusDto {
 export class UpdateApartmentDto {
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: 'Luxury Suite' })
   title?: string;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: '123 Main Street' })
   address?: string;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: 'Lagos' })
   city?: string;
 
   @IsOptional()
   @IsNumber()
+  @ApiPropertyOptional({ example: 25000 })
   weekdayBasePrice?: number;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: 'WiFi,Pool' })
   amenities?: string;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: '["photo1.jpg","photo2.jpg"]' })
   photos?: string;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: 'Ocean view, King bed' })
   highlights?: string;
 
   @IsOptional()
   @IsString()
+  @ApiPropertyOptional({ example: 'Spacious apartment with city view' })
   description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @ApiPropertyOptional({ example: true })
+  published?: boolean;
 }
 
 export class UpdateApartmentBulkStatusDto {
