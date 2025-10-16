@@ -227,6 +227,34 @@ export class SupportTicket extends Timestamp {
   status: 'pending' | 'resolved';
 }
 
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'feedback' })
+export class Feedback extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user?: Users;
+
+  @Property()
+  about: string;
+
+  @Property()
+  topic: string;
+
+  @Property({ columnType: 'text' })
+  details: string;
+}
+
 export enum BookingStatus {
   BOOKED = 'Booked',
   CHECKED_IN = 'Checked In',

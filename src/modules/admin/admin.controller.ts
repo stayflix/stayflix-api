@@ -207,6 +207,13 @@ export class AdminController {
     return this.apartmentService.getPayOuts(query);
   }
 
+  @Get('feedback')
+  @ApiOperation({ summary: 'List feedback', description: 'Fetches all user feedback entries submitted through the platform.' })
+  @ApiOkResponse({ description: 'Feedback list', schema: { type: 'array', items: { type: 'object' } } })
+  getFeedback() {
+    return this.apartmentService.getFeedback();
+  }
+
   @Get('support-tickets')
   @ApiOperation({ summary: 'List support tickets', description: 'Gets support tickets with filters.' })
   @ApiOkResponse({ description: 'Support tickets list', schema: { type: 'object' } })

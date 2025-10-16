@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { MyApartmentsController } from './my-apartments.controller';
 import { ApartmentService } from './apartments.service';
 import { ApartmentsController } from './apartments.controller';
+import { FeedbackController } from './feedback.controller';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import {
   ApartmentReviews,
   Apartments,
   Bookings,
+  Feedback,
   Payment,
   Wishlist,
 } from './apartments.entity';
@@ -24,12 +26,13 @@ import { PaystackConfiguration } from 'src/config/configuration';
         Users,
         ApartmentReviews,
         Bookings,
+        Feedback,
         Payment,
       ],
     }),
     ConfigModule.forFeature(PaystackConfiguration),
   ],
-  controllers: [MyApartmentsController, ApartmentsController],
+  controllers: [MyApartmentsController, ApartmentsController, FeedbackController],
   providers: [ApartmentService],
   exports: [ApartmentService],
 })

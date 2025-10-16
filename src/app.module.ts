@@ -13,6 +13,7 @@ import { validate } from './env.validator';
 import { ApartmentsModule } from './modules/apartments/apartments.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ListModule } from './modules/lists/lists.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ListModule } from './modules/lists/lists.module';
     ApartmentsModule,
     AdminModule,
     ListModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

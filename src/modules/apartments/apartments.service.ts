@@ -19,6 +19,7 @@ import {
   BookApartmentDto,
   CreateApartmentDto,
   CreateDraftApartmentDto,
+  SubmitFeedbackDto,
 } from './apartments.dto';
 import {
   ApartmentStatus,
@@ -32,6 +33,7 @@ import {
   Apartments,
   Bookings,
   BookingStatus,
+  Feedback,
   PayIn,
   Payment,
   PayOut,
@@ -66,6 +68,8 @@ export class ApartmentService {
     private readonly bookingsRepository: EntityRepository<Bookings>,
     @InjectRepository(Payment)
     private readonly paymentRepository: EntityRepository<Payment>,
+    @InjectRepository(Feedback)
+    private readonly feedbackRepository: EntityRepository<Feedback>,
     @Inject(PaystackConfiguration.KEY)
     private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
   ) {}
@@ -790,5 +794,50 @@ export class ApartmentService {
     ticket.status = 'resolved';
     await this.em.flush();
     return ticket;
+  }
+
+  async submitFeedback(
+    { about, topic, details }: SubmitFeedbackDto,
+    { uuid }: IAuthContext,
+  ) {
+    const feedback = this.feedbackRepository.create({
+      uuid: v4(),
+      about,
+      topic,
+      details,
+      user: this.usersRepository.getReference(uuid),
+    });
+    this.em.persist(feedback);
+    await this.em.flush();
+    return {
+      status: true,
+      message: 'Feedback submitted successfully',
+      data: { feedbackUuid: feedback.uuid },
+    };
+  }
+
+  async getFeedback() {
+    const feedbacks = await this.feedbackRepository.find(
+      {},
+      {
+        populate: ['user'],
+        orderBy: { createdAt: QueryOrder.DESC },
+      },
+    );
+
+    return feedbacks.map((item) => ({
+      uuid: item.uuid,
+      about: item.about,
+      topic: item.topic,
+      details: item.details,
+      createdAt: item.createdAt,
+      user: item.user
+        ? {
+            uuid: item.user.uuid,
+            fullName: item.user.fullName,
+            email: item.user.email,
+          }
+        : null,
+    }));
   }
 }

@@ -212,3 +212,17 @@ export class BookApartmentDto {
   @IsString()
   transactionId: string;
 }
+
+export class SubmitFeedbackDto {
+  @IsString()
+  @ApiProperty({ example: 'Booking experience' })
+  about: string;
+
+  @IsString()
+  @ApiProperty({ example: 'Checkout flow' })
+  topic: string;
+
+  @IsString()
+  @ApiProperty({ example: 'It would be helpful to see clearer pricing before payment.' })
+  details: string;
+}
