@@ -19,10 +19,12 @@ import {
   BookApartmentDto,
   CreateApartmentDto,
   CreateDraftApartmentDto,
+  CreateReviewDto,
   SubmitFeedbackDto,
 } from './apartments.dto';
 import {
   ApartmentStatus,
+  CouponStatus,
   Currencies,
   IAuthContext,
   PaymentType,
@@ -53,6 +55,8 @@ import {
 import { PaystackConfiguration } from 'src/config/configuration';
 import { ConfigType } from '@nestjs/config';
 import axios from 'axios';
+import { CouponsService } from '../coupons/coupons.service';
+import { Coupon } from '../coupons/coupons.entity';
 
 @Injectable()
 export class ApartmentService {
@@ -72,6 +76,7 @@ export class ApartmentService {
     private readonly feedbackRepository: EntityRepository<Feedback>,
     @Inject(PaystackConfiguration.KEY)
     private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
+    private readonly couponsService: CouponsService,
   ) {}
 
   async getBookings({ status, sort, page = 1, limit = 10 }: BookingFilterDto) {
@@ -99,7 +104,7 @@ export class ApartmentService {
       }
     })();
     const [data, total] = await this.bookingsRepository.findAndCount(where, {
-      populate: ['apartment', 'user'],
+      populate: ['apartment', 'user', 'coupon'],
       orderBy,
       offset: (page - 1) * limit,
       limit,
@@ -110,6 +115,8 @@ export class ApartmentService {
       bookedDate: b.startDate,
       duration: this.getDurationInMonths(b.startDate, b.endDate),
       totalAmount: b.totalAmount,
+      couponDiscount: b.couponDiscount,
+      couponCode: b.coupon?.code ?? null,
       status: b.status,
     }));
     return {
@@ -178,7 +185,7 @@ export class ApartmentService {
 
   async bookApartment(
     apartmentUuid: string,
-    { startDate, endDate, transactionId }: BookApartmentDto,
+    { startDate, endDate, transactionId, couponCode }: BookApartmentDto,
     { uuid }: IAuthContext,
   ) {
     const start = new Date(startDate);
@@ -187,45 +194,37 @@ export class ApartmentService {
       throw new BadRequestException('Invalid booking dates supplied');
     }
 
-    const transResponse = await axios
-      .get(
-        `${this.paystackConfig.baseUrl}/transaction/verify/${encodeURIComponent(transactionId)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${this.paystackConfig.secretKey}`,
-          },
-        },
-      )
-      .catch((error) => {
-        const paystackResponse = error.response;
-        if (paystackResponse) {
-          const { status } = paystackResponse;
-          const message =
-            paystackResponse.data?.message ??
-            paystackResponse.data?.status ??
-            paystackResponse.statusText ??
-            'Paystack verification failed';
-          throw new HttpException(message, status);
-        }
-        throw new InternalServerErrorException(
-          `An error occurred while trying to verify the transaction with paystack. Error: ${error}`,
-        );
-      });
-    const paymentData = transResponse.data.data;
-    if (paymentData.status.toLowerCase() !== 'success') {
-      throw new ForbiddenException(`Transaction was not successful`);
+    if (!transactionId && !couponCode) {
+      throw new BadRequestException(
+        'Provide a payment reference or coupon code to complete booking',
+      );
     }
+
     const apartment = await this.findApartmentOrThrow(apartmentUuid);
     if (!apartment.published) {
       throw new BadRequestException('Apartment not available');
     }
 
     const totalAmount = this.calculateTotalAmount(apartment, start, end);
-    const paidAmount = Number(paymentData.amount) / 100;
-    console.log(totalAmount, paidAmount);
-    if (paidAmount !== totalAmount) {
-      throw new ForbiddenException(`Amount paid must match booking total`);
+    let couponEntity: Coupon | null = null;
+    let couponDiscount = 0;
+    let couponRemainingAfter = 0;
+
+    if (couponCode) {
+      const validation = await this.couponsService.validateCouponForAmount(
+        couponCode,
+        uuid,
+        totalAmount,
+      );
+      couponEntity = validation.coupon;
+      couponDiscount = validation.discount;
+      couponRemainingAfter = validation.remainingAfter;
     }
+
+    const outstandingAmount = Number(
+      Math.max(totalAmount - couponDiscount, 0).toFixed(2),
+    );
+
     const conflictingBooking = await this.bookingsRepository.findOne({
       apartment: { uuid: apartment.uuid },
       isCancelled: false,
@@ -241,29 +240,91 @@ export class ApartmentService {
         'Apartment already booked for selected dates',
       );
     }
-    const paymentUuid = v4();
-    const paymentModel = this.paymentRepository.create({
-      uuid: paymentUuid,
-      transactionId: transactionId.toString(),
-      metadata: JSON.stringify(paymentData),
-      type: PaymentType.INCOMING,
-      amount: totalAmount,
-      channel: paymentData.paymentMethod,
-      status: 'success',
-      currency: Currencies.NGN,
-    });
+
+    let paymentData: any = null;
+    let paymentModel: Payment | null = null;
+    let paymentUuid: string | null = null;
+
+    if (transactionId) {
+      const transResponse = await axios
+        .get(
+          `${this.paystackConfig.baseUrl}/transaction/verify/${encodeURIComponent(transactionId)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.paystackConfig.secretKey}`,
+            },
+          },
+        )
+        .catch((error) => {
+          const paystackResponse = error.response;
+          if (paystackResponse) {
+            const { status } = paystackResponse;
+            const message =
+              paystackResponse.data?.message ??
+              paystackResponse.data?.status ??
+              paystackResponse.statusText ??
+              'Paystack verification failed';
+            throw new HttpException(message, status);
+          }
+          throw new InternalServerErrorException(
+            `An error occurred while trying to verify the transaction with paystack. Error: ${error}`,
+          );
+        });
+      paymentData = transResponse.data.data;
+      if (paymentData.status.toLowerCase() !== 'success') {
+        throw new ForbiddenException(`Transaction was not successful`);
+      }
+      const paidAmount = Number(paymentData.amount) / 100;
+      const amountToCompare = Number(outstandingAmount.toFixed(2));
+      if (Number(paidAmount.toFixed(2)) !== amountToCompare) {
+        throw new ForbiddenException(
+          `Amount paid must match the outstanding booking balance`,
+        );
+      }
+
+      paymentUuid = v4();
+      paymentModel = this.paymentRepository.create({
+        uuid: paymentUuid,
+        transactionId: transactionId.toString(),
+        metadata: JSON.stringify(paymentData),
+        type: PaymentType.INCOMING,
+        amount: paidAmount,
+        channel: paymentData.paymentMethod,
+        status: 'success',
+        currency: Currencies.NGN,
+      });
+    } else if (outstandingAmount > 0) {
+      throw new BadRequestException(
+        'Payment reference is required for the outstanding balance',
+      );
+    }
+
     const booking = this.bookingsRepository.create({
       uuid: v4(),
       apartment: this.apartmentsRepository.getReference(apartmentUuid),
-      payment: this.paymentRepository.getReference(paymentUuid),
+      payment:
+        paymentModel && paymentUuid
+          ? this.paymentRepository.getReference(paymentUuid)
+          : null,
       user: this.usersRepository.getReference(uuid),
       startDate: start,
       endDate: end,
       reservationType: apartment.reservationType,
       totalAmount,
+      coupon: couponEntity ?? undefined,
+      couponDiscount,
     });
     this.em.persist(booking);
-    this.em.persist(paymentModel);
+    if (paymentModel) {
+      this.em.persist(paymentModel);
+    }
+    if (couponEntity) {
+      couponEntity.remainingAmount = couponRemainingAfter;
+      couponEntity.status =
+        couponRemainingAfter <= 0
+          ? CouponStatus.EXHAUSTED
+          : CouponStatus.ACTIVE;
+    }
     await this.em.flush();
     return {
       status: true,
@@ -305,7 +366,7 @@ export class ApartmentService {
         isCancelled: false,
       },
       {
-        populate: ['apartment'],
+        populate: ['apartment', 'coupon'],
         limit,
         offset: limit * (page - 1),
         orderBy: orderBy
@@ -319,6 +380,8 @@ export class ApartmentService {
       startDate: booking.startDate,
       endDate: booking.endDate,
       totalAmount: booking.totalAmount,
+      couponDiscount: booking.couponDiscount,
+      couponCode: booking.coupon?.code ?? null,
       status: booking.status,
       reservationType: booking.reservationType,
       isPaidOut: booking.isPaidOut,
@@ -408,20 +471,29 @@ export class ApartmentService {
     search?: string,
     userUuid?: string,
   ) {
+    const viewerUuid =
+      userUuid && userUuid !== 'undefined' && userUuid !== 'null'
+        ? userUuid
+        : undefined;
     const { page = 1, limit = 20 } = pagination;
     const offset = limit * (page - 1);
 
     const whereClauses: string[] = [];
-    const params: any[] = [];
+    const whereParams: any[] = [];
 
     if (search) {
       whereClauses.push('a.title LIKE ?');
-      params.push(`%${search}%`);
+      whereParams.push(`%${search}%`);
     }
 
     if (filter?.apartmentType) {
       whereClauses.push('a.apartment_type = ?');
-      params.push(filter.apartmentType);
+      whereParams.push(filter.apartmentType);
+    }
+
+    if (viewerUuid) {
+      whereClauses.push('(a.created_by IS NULL OR a.created_by <> ?)');
+      whereParams.push(viewerUuid);
     }
 
     const whereSql =
@@ -429,20 +501,20 @@ export class ApartmentService {
 
     let sql: string;
 
-    if (userUuid) {
+    if (viewerUuid) {
       sql = `
       SELECT
         a.*,
         CASE WHEN w.uuid IS NOT NULL THEN true ELSE false END AS isWishlisted
       FROM apartments a
       LEFT JOIN wishlist w
-        ON w.apartment_uuid = a.uuid
-       AND w.user_uuid = ?
+        ON w.apartment = a.uuid
+       AND w.user = ?
       ${whereSql ? ' ' + whereSql : ''}
       ORDER BY a.created_at DESC
       LIMIT ? OFFSET ?
     `;
-      params.push(userUuid);
+      // params handled separately below
     } else {
       sql = `
       SELECT
@@ -455,13 +527,15 @@ export class ApartmentService {
     `;
     }
 
-    // Append LIMIT and OFFSET at the end of params
-    params.push(Number(limit), Number(offset));
+    const selectParams = [
+      ...(viewerUuid ? [viewerUuid] : []),
+      ...whereParams,
+      Number(limit),
+      Number(offset),
+    ];
 
-    // Count query params only use filtering (exclude limit/offset and userUuid)
-    const countParams = userUuid
-      ? params.slice(0, params.length - 3)
-      : params.slice(0, params.length - 2);
+    // Count query params only use filtering (exclude limit/offset and userUuid join param)
+    const countParams = [...whereParams];
 
     const countSql = `
     SELECT COUNT(*) AS total
@@ -471,7 +545,7 @@ export class ApartmentService {
 
     const conn = this.em.getConnection();
     const [apartments, totalResult] = await Promise.all([
-      conn.execute(sql, params),
+      conn.execute(sql, selectParams),
       conn.execute(countSql, countParams),
     ]);
 
@@ -510,6 +584,181 @@ export class ApartmentService {
       page,
       limit,
     });
+  }
+
+  async submitReview(
+    apartmentUuid: string,
+    dto: CreateReviewDto,
+    { uuid }: IAuthContext,
+  ) {
+    const apartment = await this.findApartmentOrThrow(apartmentUuid);
+    const bookingWhere: any = {
+      apartment: apartmentUuid,
+      user: uuid,
+      isCancelled: false,
+    };
+    if (dto.bookingUuid) {
+      bookingWhere.uuid = dto.bookingUuid;
+    }
+
+    const booking = await this.bookingsRepository.findOne(bookingWhere, {
+      populate: ['apartment'],
+      orderBy: { createdAt: QueryOrder.DESC },
+    });
+    if (!booking) {
+      throw new ForbiddenException(
+        'You can only review apartments you have booked',
+      );
+    }
+
+    let review = await this.em.findOne(ApartmentReviews, {
+      booking: booking.uuid,
+    });
+    if (!review) {
+      review = this.em.create(ApartmentReviews, {
+        uuid: v4(),
+        apartment: this.apartmentsRepository.getReference(apartment.uuid),
+        user: this.usersRepository.getReference(uuid),
+        booking: this.bookingsRepository.getReference(booking.uuid),
+        rating: dto.rating,
+        review: dto.review,
+      });
+    } else {
+      review.rating = dto.rating;
+      review.review = dto.review;
+    }
+
+    this.em.persist(review);
+    await this.em.flush();
+    await this.recalculateApartmentRating(apartmentUuid);
+
+    return { status: true, message: 'Review submitted successfully' };
+  }
+
+  private async recalculateApartmentRating(apartmentUuid: string) {
+    const [reviews, total] = await this.em.findAndCount(ApartmentReviews, {
+      apartment: apartmentUuid,
+    });
+
+    const totalRating = reviews.reduce(
+      (acc, current) => acc + (Number(current.rating) || 0),
+      0,
+    );
+    const avgRating =
+      total === 0 ? 0 : Number((totalRating / Math.max(total, 1)).toFixed(2));
+
+    const apartment = await this.findApartmentOrThrow(apartmentUuid);
+    apartment.avgRating = avgRating;
+    await this.em.flush();
+  }
+
+  async getPublicApartmentReviews(
+    apartmentUuid: string,
+    pagination: PaginationInput = {} as PaginationInput,
+  ) {
+    await this.findApartmentOrThrow(apartmentUuid);
+    const { page = 1, limit = 20 } = pagination;
+    const [reviews, total] = await this.em.findAndCount(
+      ApartmentReviews,
+      { apartment: apartmentUuid },
+      {
+        populate: ['user'],
+        orderBy: { createdAt: QueryOrder.DESC },
+        limit,
+        offset: (page - 1) * limit,
+      },
+    );
+
+    const data = reviews.map((review) => ({
+      uuid: review.uuid,
+      rating: review.rating,
+      comment: review.review,
+      createdAt: review.createdAt,
+      user: review.user
+        ? { uuid: review.user.uuid, fullName: review.user.fullName }
+        : null,
+    }));
+
+    return buildResponseDataWithPagination(data, total, { page, limit });
+  }
+
+  async getOwnerApartmentReviews(
+    apartmentUuid: string,
+    pagination: PaginationInput = {} as PaginationInput,
+    { uuid }: IAuthContext,
+  ) {
+    const apartment = await this.apartmentsRepository.findOne({
+      uuid: apartmentUuid,
+      createdBy: { uuid },
+    });
+    if (!apartment) {
+      throw new ForbiddenException('You do not own this apartment');
+    }
+    const { page = 1, limit = 20 } = pagination;
+    const [reviews, total] = await this.em.findAndCount(
+      ApartmentReviews,
+      { apartment: apartmentUuid },
+      {
+        populate: ['user', 'booking'],
+        orderBy: { createdAt: QueryOrder.DESC },
+        limit,
+        offset: (page - 1) * limit,
+      },
+    );
+
+    const data = reviews.map((review) => ({
+      uuid: review.uuid,
+      rating: review.rating,
+      comment: review.review,
+      createdAt: review.createdAt,
+      guest: review.user
+        ? { uuid: review.user.uuid, fullName: review.user.fullName }
+        : null,
+      bookingUuid: review.booking?.uuid ?? null,
+    }));
+
+    return buildResponseDataWithPagination(data, total, { page, limit });
+  }
+
+  async getApartmentBookingHistory(
+    apartmentUuid: string,
+    pagination: PaginationInput = {} as PaginationInput,
+    { uuid }: IAuthContext,
+  ) {
+    const apartment = await this.apartmentsRepository.findOne({
+      uuid: apartmentUuid,
+      createdBy: { uuid },
+    });
+    if (!apartment) {
+      throw new ForbiddenException('You do not own this apartment');
+    }
+
+    const { page = 1, limit = 20 } = pagination;
+    const [bookings, total] = await this.bookingsRepository.findAndCount(
+      { apartment: apartmentUuid },
+      {
+        populate: ['user', 'coupon'],
+        orderBy: { createdAt: QueryOrder.DESC },
+        limit,
+        offset: (page - 1) * limit,
+      },
+    );
+
+    const data = bookings.map((booking) => ({
+      uuid: booking.uuid,
+      guest: booking.user
+        ? { uuid: booking.user.uuid, fullName: booking.user.fullName }
+        : null,
+      startDate: booking.startDate,
+      endDate: booking.endDate,
+      status: booking.status,
+      totalAmount: booking.totalAmount,
+      couponDiscount: booking.couponDiscount,
+      couponCode: booking.coupon?.code ?? null,
+      createdAt: booking.createdAt,
+    }));
+
+    return buildResponseDataWithPagination(data, total, { page, limit });
   }
 
   async getMyApartment(apartmentUuid: string, { uuid }: IAuthContext) {

@@ -16,6 +16,7 @@ import {
   ApartmentStatus,
 } from 'src/types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, Max, Min } from 'class-validator';
 
 export class CreateApartmentDto {
   @IsString()
@@ -209,8 +210,28 @@ export class BookApartmentDto {
   @IsDateString()
   endDate: string;
 
+  @IsOptional()
   @IsString()
-  transactionId: string;
+  transactionId?: string;
+
+  @IsOptional()
+  @IsString()
+  couponCode?: string;
+}
+
+export class CreateReviewDto {
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating: number;
+
+  @IsOptional()
+  @IsString()
+  review?: string;
+
+  @IsOptional()
+  @IsString()
+  bookingUuid?: string;
 }
 
 export class SubmitFeedbackDto {

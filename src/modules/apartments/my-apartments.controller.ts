@@ -31,13 +31,18 @@ import {
   MyBookingsQuery,
 } from './apartments.dto';
 import { Request } from 'express';
+import { PaymentsService } from '../payments/payments.service';
+import { PaginationInput } from 'src/base/dto';
 
 @Controller('my-apartments')
 @ApiTags('my-apartments')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class MyApartmentsController {
-  constructor(private readonly apartmentService: ApartmentService) {}
+  constructor(
+    private readonly apartmentService: ApartmentService,
+    private readonly paymentsService: PaymentsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create apartment', description: 'Creates a new apartment for the authenticated user.' })
@@ -95,6 +100,64 @@ export class MyApartmentsController {
   fetchMyBookings(@Query() query: MyBookingsQuery, @Req() req: Request) {
     return this.apartmentService.fetchMyBookings(
       query.pagination,
+      req.user as any,
+    );
+  }
+
+  @Get('payouts')
+  @ApiOperation({ summary: 'Payout history', description: 'Fetches payout history for the authenticated apartment owner.' })
+  @ApiOkResponse({ description: 'Payout history', schema: { type: 'array', items: { type: 'object' } } })
+  @ApiQuery({ name: 'apartmentUuid', required: false, type: String })
+  fetchPayoutHistory(
+    @Query('apartmentUuid') apartmentUuid: string,
+    @Req() req: Request,
+  ) {
+    return this.paymentsService.getPayoutHistoryForOwner(
+      (req.user as any).uuid,
+      apartmentUuid,
+    );
+  }
+
+  @Get(':uuid/reviews')
+  @ApiOperation({ summary: 'Apartment reviews (owner)', description: 'Fetches reviews for an apartment owned by the authenticated user.' })
+  @ApiOkResponse({ description: 'Apartment reviews', schema: { type: 'object' } })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  fetchApartmentReviews(
+    @Param('uuid') uuid: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Req() req: Request,
+  ) {
+    const pagination: PaginationInput = {
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    };
+    return this.apartmentService.getOwnerApartmentReviews(
+      uuid,
+      pagination,
+      req.user as any,
+    );
+  }
+
+  @Get(':uuid/bookings-history')
+  @ApiOperation({ summary: 'Apartment booking history', description: 'Fetches bookings for an apartment owned by the authenticated user.' })
+  @ApiOkResponse({ description: 'Apartment bookings history', schema: { type: 'object' } })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  fetchApartmentBookingHistory(
+    @Param('uuid') uuid: string,
+    @Query('page') page: number,
+    @Query('limit') limit: number,
+    @Req() req: Request,
+  ) {
+    const pagination: PaginationInput = {
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    };
+    return this.apartmentService.getApartmentBookingHistory(
+      uuid,
+      pagination,
       req.user as any,
     );
   }

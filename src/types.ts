@@ -54,6 +54,13 @@ export enum Currencies {
   NGN = 'NGN',
 }
 
+export enum CouponStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  EXPIRED = 'EXPIRED',
+  EXHAUSTED = 'EXHAUSTED',
+}
+
 export interface IEmailDto {
   templateCode: string;
   to?: string;

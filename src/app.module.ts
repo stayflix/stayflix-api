@@ -14,6 +14,8 @@ import { ApartmentsModule } from './modules/apartments/apartments.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { ListModule } from './modules/lists/lists.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { ChatModule } from './modules/chat/chat.module';
     AdminModule,
     ListModule,
     ChatModule,
+    CouponsModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [
