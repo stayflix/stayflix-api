@@ -53,7 +53,7 @@ export class AdminService {
     };
   }
 
-  async createUser(user: AdminUserDto) {
+  async createAdmin(user: AdminUserDto) {
     const userExists = await this.adminUserRepository.findOne({
       email: user.email,
     });
@@ -71,5 +71,9 @@ export class AdminService {
     this.em.persist(adminUserModel);
     await this.em.flush();
     return { status: true };
+  }
+
+  async createUser(user: AdminUserDto) {
+    return this.createAdmin(user);
   }
 }

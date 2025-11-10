@@ -68,6 +68,16 @@ export class AdminController {
     return this.service.createUser(body);
   }
 
+  @Post('admins')
+  @ApiOperation({
+    summary: 'Create another admin',
+    description: 'Allows an authenticated admin to create another admin account.',
+  })
+  @ApiCreatedResponse({ description: 'Admin account created', schema: { type: 'object' } })
+  createAdmin(@Body() body: dtos.AdminUserDto) {
+    return this.service.createAdmin(body);
+  }
+
   @Get('earnings')
   @ApiOperation({ summary: 'Get earnings', description: 'Gets dashboard earnings for the specified year.' })
   @ApiQuery({ name: 'year', required: true, type: Number })
