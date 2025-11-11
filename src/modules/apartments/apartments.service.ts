@@ -480,6 +480,9 @@ export class ApartmentService {
 
     const whereClauses: string[] = [];
     const whereParams: any[] = [];
+    const locationFilter = filter?.location?.trim();
+    const cityFilter = filter?.city?.trim();
+    const countryFilter = filter?.country?.trim();
 
     if (search) {
       whereClauses.push('a.title LIKE ?');
@@ -489,6 +492,24 @@ export class ApartmentService {
     if (filter?.apartmentType) {
       whereClauses.push('a.apartment_type = ?');
       whereParams.push(filter.apartmentType);
+    }
+
+    if (locationFilter) {
+      whereClauses.push(
+        '(LOWER(a.city) LIKE ? OR LOWER(a.address) LIKE ? OR LOWER(a.country) LIKE ?)',
+      );
+      const locationLike = `%${locationFilter.toLowerCase()}%`;
+      whereParams.push(locationLike, locationLike, locationLike);
+    }
+
+    if (cityFilter) {
+      whereClauses.push('LOWER(a.city) = ?');
+      whereParams.push(cityFilter.toLowerCase());
+    }
+
+    if (countryFilter) {
+      whereClauses.push('LOWER(a.country) = ?');
+      whereParams.push(countryFilter.toLowerCase());
     }
 
     if (viewerUuid) {
@@ -810,6 +831,8 @@ export class ApartmentService {
     entity.bedCount = dto.bedCount;
     entity.bathroomCount = dto.bathroomCount;
     entity.amenities = dto.amenities;
+    entity.city = dto.city;
+    entity.country = dto.country;
     entity.photos = dto.photos;
     entity.title = dto.title;
     entity.highlights = dto.highlights;
@@ -836,6 +859,8 @@ export class ApartmentService {
       bedCount: dto.bedCount,
       bathroomCount: dto.bathroomCount,
       amenities: dto.amenities,
+      city: dto.city,
+      country: dto.country,
       photos: dto.photos,
       title: dto.title,
       highlights: dto.highlights,

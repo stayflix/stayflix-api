@@ -49,6 +49,16 @@ export class CreateApartmentDto {
   amenities: string;
 
   @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'Lagos' })
+  city: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'Nigeria' })
+  country: string;
+
+  @IsString()
   photos: string;
 
   @IsString()
@@ -116,6 +126,16 @@ export class CreateDraftApartmentDto {
 
   @IsString()
   @IsOptional()
+  @ApiPropertyOptional({ example: 'Lagos' })
+  city: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'Nigeria' })
+  country: string;
+
+  @IsString()
+  @IsOptional()
   photos: string;
 
   @IsString()
@@ -165,6 +185,21 @@ export class ApartmentFilter {
   @IsOptional()
   @ApiPropertyOptional({ name: 'filter[apartmentType]', type: String })
   apartmentType: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ name: 'filter[location]', type: String, description: 'Matches apartment country, city, or address' })
+  location: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ name: 'filter[city]', type: String })
+  city: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ name: 'filter[country]', type: String })
+  country: string;
 }
 
 export class MyApartmentQuery {

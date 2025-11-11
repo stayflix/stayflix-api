@@ -19,7 +19,7 @@ export class ApartmentsController {
 
   @Get()
   @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: 'List apartments', description: 'Returns paginated apartments, filterable by status and type.' })
+  @ApiOperation({ summary: 'List apartments', description: 'Returns paginated apartments, filterable by status, type, and location.' })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'userUuid', required: false, type: String })
   @ApiQuery({ name: 'pagination[page]', required: false, type: Number })
@@ -28,6 +28,9 @@ export class ApartmentsController {
   @ApiQuery({ name: 'pagination[orderDir]', required: false, enum: ['ASC', 'DESC'] })
   @ApiQuery({ name: 'filter[status]', required: false, enum: ['PENDING', 'AVAILABLE'] })
   @ApiQuery({ name: 'filter[apartmentType]', required: false, type: String })
+  @ApiQuery({ name: 'filter[location]', required: false, type: String })
+  @ApiQuery({ name: 'filter[city]', required: false, type: String })
+  @ApiQuery({ name: 'filter[country]', required: false, type: String })
   @ApiOkResponse({ description: 'Paginated apartments list', schema: { type: 'object' } })
   fetchApartments(@Query() query: MyApartmentQuery, @Req() req: Request) {
     const user = req.user as any;

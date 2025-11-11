@@ -109,6 +109,11 @@ export class UpdateApartmentDto {
   @IsString()
   @ApiPropertyOptional({ example: 'Lagos' })
   city?: string;
+  
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ example: 'Nigeria' })
+  country?: string;
 
   @IsOptional()
   @IsNumber()

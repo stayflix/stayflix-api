@@ -65,6 +65,9 @@ export class Apartments extends Timestamp {
   city: string;
 
   @Property({ nullable: true })
+  country: string;
+
+  @Property({ nullable: true })
   highlights: string;
 
   @Property({ nullable: true })
