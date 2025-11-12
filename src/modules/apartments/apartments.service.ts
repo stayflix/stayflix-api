@@ -582,14 +582,17 @@ export class ApartmentService {
     { uuid }: IAuthContext,
   ) {
     const { page = 1, limit = 20 } = pagination;
-    const conditions = {
-      createdBy: { uuid },
-      ...(search ? { title: { $ilike: `%${search}%` } } : {}),
-      ...(filter?.status === 'draft'
+    const statusCondition =
+      filter?.status === 'draft'
         ? { draft: true }
         : filter?.status === 'published'
           ? { published: true }
-          : { published: false, draft: false }),
+          : {};
+
+    const conditions = {
+      createdBy: { uuid },
+      ...(search ? { title: { $ilike: `%${search}%` } } : {}),
+      ...statusCondition,
     };
     const [totalApartments, apartments] = await Promise.all([
       this.apartmentsRepository.count(conditions),
