@@ -169,6 +169,19 @@ export class PaymentsService {
     return wrap(record).toObject();
   }
 
+  async fetchUserBankAccounts({ uuid }: IAuthContext) {
+    const accounts = await this.bankAccountRepository.find(
+      { user: uuid } as FilterQuery<UserBankAccount>,
+      {
+        orderBy: {
+          isDefault: QueryOrder.DESC,
+          createdAt: QueryOrder.DESC,
+        },
+      },
+    );
+    return accounts.map((account) => wrap(account).toObject());
+  }
+
   private async getDefaultBankAccount(userUuid: string) {
     const account = await this.bankAccountRepository.findOne(
       {

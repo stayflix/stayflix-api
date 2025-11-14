@@ -37,4 +37,13 @@ export class PaymentsController {
   saveBankAccount(@Body() dto: SaveBankAccountDto, @Req() req: Request) {
     return this.paymentsService.saveBankAccount(dto, req.user as any);
   }
+
+  @Get('bank-accounts')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List bank accounts', description: 'Returns all bank accounts saved by the authenticated user.' })
+  @ApiOkResponse({ description: 'User bank accounts' })
+  fetchUserBankAccounts(@Req() req: Request) {
+    return this.paymentsService.fetchUserBankAccounts(req.user as any);
+  }
 }
