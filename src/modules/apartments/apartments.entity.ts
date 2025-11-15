@@ -106,6 +106,12 @@ export class Apartments extends Timestamp {
   draft: boolean;
 }
 
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
+@Entity({ tableName: 'pay_ins' })
 export class PayIn extends Timestamp {
   @PrimaryKey()
   uuid: string;
