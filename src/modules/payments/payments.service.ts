@@ -182,6 +182,19 @@ export class PaymentsService {
     return accounts.map((account) => wrap(account).toObject());
   }
 
+  async fetchBankAccountsByUser(userUuid: string) {
+    const accounts = await this.bankAccountRepository.find(
+      { user: userUuid } as FilterQuery<UserBankAccount>,
+      {
+        orderBy: {
+          isDefault: QueryOrder.DESC,
+          createdAt: QueryOrder.DESC,
+        },
+      },
+    );
+    return accounts.map((account) => wrap(account).toObject());
+  }
+
   private async getDefaultBankAccount(userUuid: string) {
     const account = await this.bankAccountRepository.findOne(
       {

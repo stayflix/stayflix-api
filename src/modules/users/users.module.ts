@@ -10,14 +10,14 @@ import {
   JwtAuthConfiguration,
   PaystackConfiguration,
 } from 'src/config/configuration';
-import { Bookings } from '../apartments/apartments.entity';
+import { Apartments, Bookings } from '../apartments/apartments.entity';
 
 @Module({
   imports: [
     ConfigModule.forFeature(PaystackConfiguration),
     ConfigModule.forFeature(JwtAuthConfiguration),
     MikroOrmModule.forFeature({
-      entities: [Users, BlacklistedTokens, Bookings],
+      entities: [Users, BlacklistedTokens, Bookings, Apartments],
     }),
     SharedModule,
   ],

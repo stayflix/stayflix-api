@@ -9,6 +9,8 @@ import {
   Apartments,
   Bookings,
   Feedback,
+  PayIn,
+  PayOut,
   Payment,
   Wishlist,
 } from './apartments.entity';
@@ -29,6 +31,8 @@ import { PaymentsModule } from '../payments/payments.module';
         ApartmentReviews,
         Bookings,
         Feedback,
+        PayIn,
+        PayOut,
         Payment,
       ],
     }),

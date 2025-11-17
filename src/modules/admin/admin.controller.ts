@@ -125,6 +125,17 @@ export class AdminController {
     return this.userService.getUserWithBookings(uuid);
   }
 
+  @Patch('users/:uuid/status')
+  @ApiOperation({ summary: 'Update user status', description: 'Activate or deactivate a user account. Deactivated users cannot log in.' })
+  @ApiParam({ name: 'uuid', type: String })
+  @ApiOkResponse({ description: 'User status updated', schema: { type: 'object' } })
+  async updateUserStatus(
+    @Param('uuid') uuid: string,
+    @Body() body: dtos.AdminUserStatusDto,
+  ) {
+    return this.userService.setActiveStatus(uuid, body.active, body.reason);
+  }
+
   @Get('apartments')
   @ApiOperation({ summary: 'List apartments', description: 'Returns admin apartments list with filters.' })
   @ApiOkResponse({ description: 'Apartments list', schema: { type: 'object' } })

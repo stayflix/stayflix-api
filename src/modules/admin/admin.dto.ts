@@ -88,6 +88,17 @@ export class UserListQueryDto {
   order?: 'asc' | 'desc';
 }
 
+export class AdminUserStatusDto {
+  @IsBoolean()
+  @ApiPropertyOptional({ example: true, description: 'Set to false to deactivate the user' })
+  active: boolean;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional({ example: 'Fraudulent activity detected' })
+  reason?: string;
+}
+
 export class UpdateApartmentStatusDto {
   @IsEnum(ApartmentStatus)
   @ApiPropertyOptional({ enum: ApartmentStatus, enumName: 'ApartmentStatus', example: ApartmentStatus.AVAILABLE })

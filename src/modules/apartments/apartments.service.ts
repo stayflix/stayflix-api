@@ -70,6 +70,8 @@ export class ApartmentService {
     private readonly wishlistRepository: EntityRepository<Wishlist>,
     @InjectRepository(Bookings)
     private readonly bookingsRepository: EntityRepository<Bookings>,
+    @InjectRepository(PayIn)
+    private readonly payInRepository: EntityRepository<PayIn>,
     @InjectRepository(Payment)
     private readonly paymentRepository: EntityRepository<Payment>,
     @InjectRepository(Feedback)
@@ -315,8 +317,17 @@ export class ApartmentService {
       couponDiscount,
     });
     this.em.persist(booking);
-    if (paymentModel) {
+    if (paymentModel && paymentModel.amount > 0) {
+      // Record incoming funds for this booking
+      const payIn = this.payInRepository.create({
+        uuid: v4(),
+        user: this.usersRepository.getReference(uuid),
+        apartment: this.apartmentsRepository.getReference(apartmentUuid),
+        amount: paymentModel.amount,
+        reference: transactionId?.toString(),
+      });
       this.em.persist(paymentModel);
+      this.em.persist(payIn);
     }
     if (couponEntity) {
       couponEntity.remainingAmount = couponRemainingAfter;

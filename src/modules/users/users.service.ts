@@ -19,7 +19,7 @@ import axios from 'axios';
 import { PaystackConfiguration } from 'src/config/configuration';
 import { ConfigType } from '@nestjs/config';
 import { UserListQueryDto } from '../admin/admin.dto';
-import { Bookings } from '../apartments/apartments.entity';
+import { Apartments, Bookings } from '../apartments/apartments.entity';
 
 @Injectable()
 export class UsersService {
@@ -29,6 +29,8 @@ export class UsersService {
     private readonly usersRepository: EntityRepository<Users>,
     @InjectRepository(Bookings)
     private readonly bookingsRepository: EntityRepository<Bookings>,
+    @InjectRepository(Apartments)
+    private readonly apartmentsRepository: EntityRepository<Apartments>,
     @Inject(PaystackConfiguration.KEY)
     private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
     private readonly sharedService: SharedService,
@@ -36,13 +38,21 @@ export class UsersService {
 
   async getUserWithBookings(userId: string) {
     const user = await this.usersRepository.findOneOrFail({ uuid: userId });
-    const bookings = await this.bookingsRepository.find(
+    const bookingsPromise = this.bookingsRepository.find(
       {
         user: { uuid: userId },
         isCancelled: false,
       },
       { populate: ['apartment'], orderBy: { startDate: QueryOrder.DESC } },
     );
+    const apartmentsPromise = this.apartmentsRepository.find(
+      { createdBy: { uuid: userId } },
+      { orderBy: { createdAt: QueryOrder.DESC } },
+    );
+    const [bookings, apartments] = await Promise.all([
+      bookingsPromise,
+      apartmentsPromise,
+    ]);
     return {
       profile: {
         name: user.fullName,
@@ -55,6 +65,15 @@ export class UsersService {
         date: b.startDate,
         amount: b.totalAmount,
         status: b.status,
+      })),
+      apartments: apartments.map((a) => ({
+        uuid: a.uuid,
+        title: a.title,
+        city: a.city,
+        address: a.address,
+        published: a.published,
+        status: a.status,
+        createdAt: a.createdAt,
       })),
     };
   }
@@ -177,6 +196,15 @@ export class UsersService {
     user.deletedAt = new Date();
     user.deactivationReason = dto.reason;
     await this.em.flush();
+  }
+
+  async setActiveStatus(userUuid: string, active: boolean, reason?: string) {
+    const user = await this.usersRepository.findOne({ uuid: userUuid });
+    if (!user) throw new NotFoundException('User not found');
+    user.deletedAt = active ? null : new Date();
+    user.deactivationReason = active ? null : reason ?? user.deactivationReason;
+    await this.em.flush();
+    return { status: true };
   }
 
   async verifyBankAccount(
