@@ -83,11 +83,14 @@ jobs:
 
             cd ${{ secrets.VPS_DEPLOY_PATH }}
 
-            echo "→ Installing production dependencies..."
-            npm ci --omit=dev
+            echo "→ Installing all dependencies (needed for migrations)..."
+            npm ci
 
             echo "→ Running database migrations..."
             npm run migration:run
+
+            echo "→ Pruning dev dependencies..."
+            npm prune --omit=dev
 
             echo "→ Starting or reloading PM2 process..."
             # pm2 describe exits 0 if the process exists, non-zero if it doesn't
