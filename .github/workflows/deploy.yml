@@ -27,8 +27,12 @@ jobs:
         run: npm ci
 
       # ── 4. Build TypeScript → dist/ ────────────────────────────────────
+      # We skip the prebuild script (which calls rimraf, not reliably available
+      # in CI) and handle the dist cleanup ourselves before invoking nest build.
       - name: Build
-        run: npm run build
+        run: |
+          rm -rf dist
+          ./node_modules/.bin/nest build
 
       # ── 5. Add VPS to known_hosts ──────────────────────────────────────
       - name: Add VPS to known hosts

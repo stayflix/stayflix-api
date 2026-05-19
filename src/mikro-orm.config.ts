@@ -1,7 +1,9 @@
 import { defineConfig, Options } from '@mikro-orm/mysql';
+import { Migrator } from '@mikro-orm/migrations';
 require('dotenv').config();
 
 const config: Options = {
+  extensions: [Migrator],
   host: process.env.DATABASE_HOST || 'localhost',
   port: Number(process.env.DATABASE_PORT) || 3006,
   user: process.env.DATABASE_USER || 'user',
