@@ -1,0 +1,99 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js setup ───────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # ── 3. Install ALL deps (including devDeps needed for build) ────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. Build TypeScript → dist/ ────────────────────────────────────
+      - name: Build
+        run: npm run build
+
+      # ── 5. Add VPS to known_hosts ──────────────────────────────────────
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      # ── 6. rsync built artefacts to VPS ───────────────────────────────
+      #    We push:  dist/  package*.json  nest-cli.json
+      #    We skip:  node_modules/  src/  .git/  .env
+      - name: Sync files to VPS
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: >-
+            -avzr
+            --delete
+            --exclude='.git'
+            --exclude='.github'
+            --exclude='node_modules'
+            --exclude='src'
+            --exclude='.env'
+            --exclude='.env.*'
+            --exclude='*.log'
+          path: ./
+          remote_path: ${{ secrets.VPS_DEPLOY_PATH }}
+          remote_host: ${{ secrets.VPS_HOST }}
+          remote_port: ${{ secrets.VPS_PORT }}
+          remote_user: ${{ secrets.VPS_USER }}
+          remote_key: ${{ secrets.VPS_SSH_KEY }}
+
+      # ── 7. Post-deploy: install prod deps, migrate, restart ────────────
+      - name: Post-deploy tasks
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            # Load fnm so node/npm are available in non-interactive SSH
+            export FNM_PATH="$HOME/.local/share/fnm"
+            if [ -d "$FNM_PATH" ]; then
+              export PATH="$FNM_PATH:$PATH"
+              eval "$(fnm env --use-on-cd)"
+            fi
+
+            cd ${{ secrets.VPS_DEPLOY_PATH }}
+
+            echo "→ Installing production dependencies..."
+            npm ci --omit=dev
+
+            echo "→ Running database migrations..."
+            npm run migration:run
+
+            echo "→ Starting or reloading PM2 process..."
+            # pm2 describe exits 0 if the process exists, non-zero if it doesn't
+            if pm2 describe stayflix-api > /dev/null 2>&1; then
+              echo "   Process found — reloading (zero-downtime)..."
+              pm2 reload ecosystem.config.js --env production --update-env
+            else
+              echo "   No process found — starting for the first time..."
+              pm2 start ecosystem.config.js --env production
+              pm2 save
+            fi
+
+            echo "✓ Deployment complete"
