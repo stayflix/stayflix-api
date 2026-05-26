@@ -77,7 +77,7 @@ export class SharedService {
         `${this.termiiConfig.baseUrl}/api/sms/send`,
         {
           to: phone,
-          from: 'N-Alert',
+          from: this.termiiConfig.senderId,
           sms: `Your Stayflix verification code is ${otp}. Valid for 10 mins, one-time use only.`,
           type: 'plain',
           channel: 'dnd',
