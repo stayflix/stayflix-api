@@ -1,4 +1,10 @@
-import { IsEnum, IsNumber, IsString, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  validateSync,
+} from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
 export enum Environment {
@@ -36,6 +42,12 @@ class EnvironmentVariables {
   TERMII_BASE_URL: string;
   @IsString()
   TERMII_API_KEY: string;
+  @IsOptional()
+  @IsString()
+  TERMII_SENDER_ID?: string;
+  @IsOptional()
+  @IsString()
+  TERMII_SMS_CHANNEL?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

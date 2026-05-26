@@ -80,7 +80,7 @@ export class SharedService {
           from: this.termiiConfig.senderId,
           sms: `Your Stayflix verification code is ${otp}. Valid for 10 mins, one-time use only.`,
           type: 'plain',
-          channel: 'dnd',
+          channel: this.termiiConfig.smsChannel,
           api_key: this.termiiConfig.apiKey,
         },
       );

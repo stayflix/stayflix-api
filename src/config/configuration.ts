@@ -31,7 +31,8 @@ export const TermiiConfiguration = registerAs(
   (): TermiiConfig => ({
     baseUrl: process.env.TERMII_BASE_URL,
     apiKey: process.env.TERMII_API_KEY,
-    senderId: process.env.TERMII_SENDER_ID,
+    senderId: process.env.TERMII_SENDER_ID || 'DailyHelp',
+    smsChannel: process.env.TERMII_SMS_CHANNEL || 'generic',
   }),
 );
 
