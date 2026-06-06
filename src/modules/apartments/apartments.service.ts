@@ -43,6 +43,7 @@ import {
   Wishlist,
 } from './apartments.entity';
 import { Users } from '../users/users.entity';
+import { Conversation, ConversationType } from '../chat/chat.entity';
 import { v4 } from 'uuid';
 import { PaginationInput } from 'src/base/dto';
 import { buildResponseDataWithPagination } from 'src/utils';
@@ -79,6 +80,8 @@ export class ApartmentService {
     @Inject(PaystackConfiguration.KEY)
     private readonly paystackConfig: ConfigType<typeof PaystackConfiguration>,
     private readonly couponsService: CouponsService,
+    @InjectRepository(Conversation)
+    private readonly conversationsRepository: EntityRepository<Conversation>,
   ) {}
 
   async getBookings({ status, sort, page = 1, limit = 10 }: BookingFilterDto) {
@@ -454,19 +457,29 @@ export class ApartmentService {
   ): Promise<Apartments> {
     const apartment = await this.findApartmentOrThrow(apartmentUuid);
     let isWishlisted = false;
+    let activeConversationUuid: string | null = null;
 
     if (apartment && userUuid) {
-      const wishlistEntry = await this.wishlistRepository.findOne({
-        apartment: apartmentUuid,
-        user: userUuid,
-      });
+      const [wishlistEntry, conversation] = await Promise.all([
+        this.wishlistRepository.findOne({
+          apartment: apartmentUuid,
+          user: userUuid,
+        }),
+        this.conversationsRepository.findOne({
+          type: ConversationType.USER_HOST,
+          user: userUuid,
+          apartment: apartmentUuid,
+        }),
+      ]);
 
       isWishlisted = !!wishlistEntry;
+      activeConversationUuid = conversation?.uuid ?? null;
     }
 
     return {
       ...wrap(apartment).toObject(),
       isWishlisted,
+      activeConversationUuid,
     } as Apartments;
   }
 
