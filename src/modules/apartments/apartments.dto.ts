@@ -282,3 +282,25 @@ export class SubmitFeedbackDto {
   @ApiProperty({ example: 'It would be helpful to see clearer pricing before payment.' })
   details: string;
 }
+
+export class CreateSupportTicketDto {
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'John Doe' })
+  fullName?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: '+2348012345678' })
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'john@example.com' })
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiPropertyOptional({ example: 'I am having trouble booking an apartment.' })
+  comment?: string;
+}

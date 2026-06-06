@@ -20,6 +20,7 @@ import {
   CreateApartmentDto,
   CreateDraftApartmentDto,
   CreateReviewDto,
+  CreateSupportTicketDto,
   SubmitFeedbackDto,
 } from './apartments.dto';
 import {
@@ -1102,6 +1103,15 @@ export class ApartmentService {
     const ticket = await this.em.findOne(SupportTicket, { uuid });
     if (!ticket) throw new NotFoundException('Ticket not found');
     ticket.status = 'resolved';
+    await this.em.flush();
+    return ticket;
+  }
+
+  async createTicket(dto: CreateSupportTicketDto) {
+    const ticket = this.em.create(SupportTicket, {
+      uuid: v4(),
+      ...dto,
+    });
     await this.em.flush();
     return ticket;
   }

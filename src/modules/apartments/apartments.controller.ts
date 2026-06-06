@@ -6,7 +6,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApartmentService } from './apartments.service';
-import { ApartmentFilter, CreateReviewDto, MyApartmentQuery } from './apartments.dto';
+import { ApartmentFilter, CreateReviewDto, CreateSupportTicketDto, MyApartmentQuery } from './apartments.dto';
 import { OptionalJwtAuthGuard } from 'src/guards/optional-jwt-auth-guard';
 import { Request } from 'express';
 import { PaginationInput } from 'src/base/dto';
@@ -77,5 +77,12 @@ export class ApartmentsController {
     @Query('userUuid') userUuid: string,
   ) {
     return this.apartmentService.getApartment(uuid, userUuid);
+  }
+
+  @Post('support-tickets')
+  @ApiOperation({ summary: 'Create support ticket', description: 'Submit a support ticket. No authentication required.' })
+  @ApiOkResponse({ description: 'Support ticket created', schema: { type: 'object' } })
+  createSupportTicket(@Body() dto: CreateSupportTicketDto) {
+    return this.apartmentService.createTicket(dto);
   }
 }
