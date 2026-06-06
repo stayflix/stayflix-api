@@ -109,7 +109,7 @@ export class ApartmentService {
       }
     })();
     const [data, total] = await this.bookingsRepository.findAndCount(where, {
-      populate: ['apartment', 'user', 'coupon'],
+      populate: ['apartment', 'apartment.createdBy', 'user', 'coupon'],
       orderBy,
       offset: (page - 1) * limit,
       limit,
@@ -117,8 +117,11 @@ export class ApartmentService {
     const bookings = data.map((b) => ({
       apartmentTitle: b.apartment?.title,
       location: b.apartment?.address,
+      bookedBy: b.user?.fullName ?? b.user?.email ?? null,
+      propertyOwner: b.apartment?.createdBy?.fullName ?? b.apartment?.createdBy?.email ?? null,
       bookedDate: b.startDate,
-      duration: this.getDurationInMonths(b.startDate, b.endDate),
+      endDate: b.endDate,
+      duration: this.getBookingDuration(b.startDate, b.endDate),
       totalAmount: b.totalAmount,
       couponDiscount: b.couponDiscount,
       couponCode: b.coupon?.code ?? null,
@@ -130,11 +133,17 @@ export class ApartmentService {
     };
   }
 
-  private getDurationInMonths(start: Date, end: Date): string {
+  private getBookingDuration(start: Date, end: Date): string {
+    const nights = Math.round(
+      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    if (nights < 30) {
+      return `${nights || 1} Night${nights !== 1 ? 's' : ''}`;
+    }
     const months =
       (end.getFullYear() - start.getFullYear()) * 12 +
       (end.getMonth() - start.getMonth());
-    return `${months || 1} Month${months > 1 ? 's' : ''}`;
+    return `${months || 1} Month${months !== 1 ? 's' : ''}`;
   }
 
   async getDashboardEarnings(year: number) {
