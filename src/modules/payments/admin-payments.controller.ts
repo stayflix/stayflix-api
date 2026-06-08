@@ -30,6 +30,13 @@ export class AdminPaymentsController {
     return this.paymentsService.fetchBankAccountsByUser(uuid);
   }
 
+  @Get('pending')
+  @ApiOperation({ summary: 'List pending payments for all users', description: 'Returns all users who have unpaid completed bookings, with their apartments and totals.' })
+  @ApiOkResponse({ description: 'Pending payments grouped by user and apartment' })
+  getAllPendingPayments() {
+    return this.paymentsService.getPendingPaymentsForAllUsers();
+  }
+
   @Get('users/:uuid/pending')
   @ApiOperation({ summary: 'List pending payments for user', description: 'Returns all apartments with unpaid completed bookings for a user, grouped by apartment.' })
   @ApiOkResponse({ description: 'Pending payments grouped by apartment' })

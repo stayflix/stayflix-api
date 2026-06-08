@@ -316,6 +316,73 @@ export class PaymentsService {
     };
   }
 
+  async getPendingPaymentsForAllUsers() {
+    const bookings = await this.bookingsRepository.find(
+      {
+        status: BookingStatus.COMPLETED,
+        isPaidOut: false,
+        isCancelled: false,
+      } as FilterQuery<Bookings>,
+      { populate: ['apartment', 'apartment.createdBy'] },
+    );
+
+    const userMap = new Map<string, {
+      user: { uuid: string; fullName: string; email: string; phone: string };
+      apartments: Map<string, { apartment: { uuid: string; title: string }; amount: number; count: number }>;
+    }>();
+
+    for (const booking of bookings) {
+      const apt = booking.apartment;
+      if (!apt) continue;
+      const owner = apt.createdBy;
+      if (!owner) continue;
+
+      if (!userMap.has(owner.uuid)) {
+        userMap.set(owner.uuid, {
+          user: {
+            uuid: owner.uuid,
+            fullName: owner.fullName,
+            email: owner.email,
+            phone: owner.phone,
+          },
+          apartments: new Map(),
+        });
+      }
+
+      const userEntry = userMap.get(owner.uuid)!;
+
+      if (!userEntry.apartments.has(apt.uuid)) {
+        userEntry.apartments.set(apt.uuid, {
+          apartment: { uuid: apt.uuid, title: apt.title },
+          amount: 0,
+          count: 0,
+        });
+      }
+
+      const aptEntry = userEntry.apartments.get(apt.uuid)!;
+      aptEntry.amount += Number(booking.totalAmount ?? 0);
+      aptEntry.count += 1;
+    }
+
+    const users = Array.from(userMap.values()).map(({ user, apartments }) => {
+      const aptItems = Array.from(apartments.values()).map(({ apartment, amount, count }) => ({
+        apartment,
+        pendingBookingsCount: count,
+        totalPendingAmount: amount,
+      }));
+      return {
+        user,
+        apartments: aptItems,
+        total: aptItems.reduce((sum, i) => sum + i.totalPendingAmount, 0),
+      };
+    });
+
+    return {
+      users,
+      grandTotal: users.reduce((sum, u) => sum + u.total, 0),
+    };
+  }
+
   async getPendingPaymentsForUser(userUuid: string) {
     const apartments = await this.apartmentsRepository.find(
       { createdBy: userUuid } as FilterQuery<Apartments>,
