@@ -319,7 +319,6 @@ export class PaymentsService {
   async getPendingPaymentsForAllUsers() {
     const bookings = await this.bookingsRepository.find(
       {
-        status: BookingStatus.COMPLETED,
         isPaidOut: false,
         isCancelled: false,
       } as FilterQuery<Bookings>,
@@ -395,7 +394,6 @@ export class PaymentsService {
 
     const bookings = await this.bookingsRepository.find({
       apartment: { $in: apartmentUuids },
-      status: BookingStatus.COMPLETED,
       isPaidOut: false,
       isCancelled: false,
     } as FilterQuery<Bookings>);
@@ -587,7 +585,6 @@ export class PaymentsService {
           await this.bookingsRepository.nativeUpdate(
             {
               apartment: { $in: apartmentUuids },
-              status: BookingStatus.COMPLETED,
               isPaidOut: false,
               isCancelled: false,
               deletedAt: null,
