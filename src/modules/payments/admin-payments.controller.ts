@@ -29,4 +29,17 @@ export class AdminPaymentsController {
   fetchUserBankAccounts(@Param('uuid') uuid: string) {
     return this.paymentsService.fetchBankAccountsByUser(uuid);
   }
+
+  @Get('users/:uuid/pending')
+  @ApiOperation({ summary: 'List pending payments for user', description: 'Returns all apartments with unpaid completed bookings for a user, grouped by apartment.' })
+  @ApiOkResponse({ description: 'Pending payments grouped by apartment' })
+  getPendingPayments(@Param('uuid') uuid: string) {
+    return this.paymentsService.getPendingPaymentsForUser(uuid);
+  }
+
+  @Post('users/:uuid/pay-all')
+  @ApiOperation({ summary: 'Pay all pending payments for user', description: 'Initiates a single Paystack transfer for the total of all pending apartment earnings, then marks bookings as settled on transfer success.' })
+  payAllPending(@Param('uuid') uuid: string, @Req() req: Request) {
+    return this.paymentsService.initiatePayoutAll(uuid, req.user as any);
+  }
 }

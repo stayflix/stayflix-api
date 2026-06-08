@@ -144,6 +144,49 @@ export class PayIn extends Timestamp {
   cond: { deletedAt: null },
   default: true,
 })
+@Entity({ tableName: 'pay_out_batches' })
+export class PayOutBatch extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => Users, {
+    fieldName: 'user',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  user: Users;
+
+  @OneToMany(() => PayOut, (payout) => payout.batch)
+  payouts = new Collection<PayOut>(this);
+
+  @Property({ type: 'decimal', precision: 10, scale: 2, nullable: true, default: 0 })
+  totalAmount: number;
+
+  @Property({ nullable: true, default: 'pending' })
+  status: string;
+
+  @Property({ nullable: true })
+  transferCode?: string;
+
+  @Property({ nullable: true })
+  reference?: string;
+
+  @Property({ nullable: true })
+  providerReference?: string;
+
+  @Property({ type: 'longtext', nullable: true })
+  metadata?: string;
+
+  @Enum({ items: () => Currencies, default: Currencies.NGN })
+  currency: Currencies = Currencies.NGN;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
 @Entity({ tableName: 'pay_outs' })
 export class PayOut extends Timestamp {
   @PrimaryKey()
@@ -182,6 +225,14 @@ export class PayOut extends Timestamp {
 
   @Property({ type: 'longtext', nullable: true })
   metadata?: string;
+
+  @ManyToOne(() => PayOutBatch, {
+    fieldName: 'batch',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  batch?: PayOutBatch;
 
   @Enum({ items: () => Currencies, default: Currencies.NGN })
   currency: Currencies = Currencies.NGN;

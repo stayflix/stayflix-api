@@ -6,14 +6,19 @@ import { PaymentsWebhookController } from './payments-webhook.controller';
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { UserBankAccount } from './payments.entity';
 import { Users } from '../users/users.entity';
-import { PayOut, Apartments } from '../apartments/apartments.entity';
+import {
+  PayOut,
+  PayOutBatch,
+  Apartments,
+  Bookings,
+} from '../apartments/apartments.entity';
 import { ConfigModule } from '@nestjs/config';
 import { PaystackConfiguration } from 'src/config/configuration';
 
 @Module({
   imports: [
     MikroOrmModule.forFeature({
-      entities: [UserBankAccount, Users, PayOut, Apartments],
+      entities: [UserBankAccount, Users, PayOut, PayOutBatch, Apartments, Bookings],
     }),
     ConfigModule.forFeature(PaystackConfiguration),
   ],

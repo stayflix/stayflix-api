@@ -26,8 +26,13 @@ import { UserBankAccount } from './payments.entity';
 import { Users } from '../users/users.entity';
 import { v4 } from 'uuid';
 import { Currencies, IAdminAuthContext, IAuthContext } from 'src/types';
-import { PayOut } from '../apartments/apartments.entity';
-import { Apartments } from '../apartments/apartments.entity';
+import {
+  PayOut,
+  PayOutBatch,
+  Apartments,
+  Bookings,
+  BookingStatus,
+} from '../apartments/apartments.entity';
 import { createHmac } from 'crypto';
 
 @Injectable()
@@ -42,8 +47,12 @@ export class PaymentsService {
     private readonly usersRepository: EntityRepository<Users>,
     @InjectRepository(PayOut)
     private readonly payoutRepository: EntityRepository<PayOut>,
+    @InjectRepository(PayOutBatch)
+    private readonly payoutBatchRepository: EntityRepository<PayOutBatch>,
     @InjectRepository(Apartments)
     private readonly apartmentsRepository: EntityRepository<Apartments>,
+    @InjectRepository(Bookings)
+    private readonly bookingsRepository: EntityRepository<Bookings>,
   ) {}
 
   private get headers() {
@@ -307,6 +316,139 @@ export class PaymentsService {
     };
   }
 
+  async getPendingPaymentsForUser(userUuid: string) {
+    const apartments = await this.apartmentsRepository.find(
+      { createdBy: userUuid } as FilterQuery<Apartments>,
+    );
+
+    if (!apartments.length) return { items: [], total: 0 };
+
+    const apartmentMap = new Map(apartments.map((a) => [a.uuid, a]));
+    const apartmentUuids = apartments.map((a) => a.uuid);
+
+    const bookings = await this.bookingsRepository.find({
+      apartment: { $in: apartmentUuids },
+      status: BookingStatus.COMPLETED,
+      isPaidOut: false,
+      isCancelled: false,
+    } as FilterQuery<Bookings>);
+
+    const grouped = new Map<string, { amount: number; count: number }>();
+    for (const booking of bookings) {
+      const apUuid = booking.apartment?.uuid;
+      if (!apUuid) continue;
+      if (!grouped.has(apUuid)) grouped.set(apUuid, { amount: 0, count: 0 });
+      const entry = grouped.get(apUuid)!;
+      entry.amount += Number(booking.totalAmount ?? 0);
+      entry.count += 1;
+    }
+
+    const items = Array.from(grouped.entries()).map(([apUuid, data]) => {
+      const apt = apartmentMap.get(apUuid)!;
+      return {
+        apartment: { uuid: apt.uuid, title: apt.title },
+        pendingBookingsCount: data.count,
+        totalPendingAmount: data.amount,
+      };
+    });
+
+    return {
+      items,
+      total: items.reduce((sum, i) => sum + i.totalPendingAmount, 0),
+    };
+  }
+
+  async initiatePayoutAll(userUuid: string, admin: IAdminAuthContext) {
+    const user = await this.usersRepository.findOne({ uuid: userUuid });
+    if (!user) throw new NotFoundException('User not found');
+
+    const { items, total } = await this.getPendingPaymentsForUser(userUuid);
+
+    if (!items.length) {
+      throw new BadRequestException('No pending payments found for this user');
+    }
+
+    if (total <= 0) {
+      throw new BadRequestException('Total pending amount is zero');
+    }
+
+    const account = await this.getDefaultBankAccount(userUuid);
+    const amountKobo = Math.round(total * 100);
+
+    const payload = {
+      source: 'balance',
+      amount: amountKobo,
+      currency: 'NGN',
+      recipient: account.recipientCode,
+      reason: `Batch payout to ${account.accountName || account.accountNumber}`,
+      metadata: {
+        userUuid,
+        bankAccountUuid: account.uuid,
+        initiatedBy: admin.uuid,
+        isBatch: true,
+        apartmentUuids: items.map((i) => i.apartment.uuid),
+      },
+    };
+
+    const transferResponse = await axios
+      .post(`${this.paystackConfig.baseUrl}/transfer`, payload, {
+        headers: this.headers,
+      })
+      .catch((error) => {
+        throw new InternalServerErrorException(
+          error?.response?.data?.message ??
+            'Unable to initiate payout with Paystack',
+        );
+      });
+
+    const transferData = transferResponse?.data?.data;
+    if (!transferData) {
+      throw new InternalServerErrorException('Invalid Paystack response');
+    }
+
+    const batch = this.payoutBatchRepository.create({
+      uuid: v4(),
+      user: this.usersRepository.getReference(userUuid),
+      totalAmount: total,
+      status: transferData.status ?? 'pending',
+      transferCode: transferData.transfer_code,
+      reference: transferData.reference,
+      providerReference: transferData.id ? transferData.id.toString() : undefined,
+      metadata: JSON.stringify(transferData),
+      currency: Currencies.NGN,
+    });
+
+    this.em.persist(batch);
+
+    for (const item of items) {
+      const payout = this.payoutRepository.create({
+        uuid: v4(),
+        user: this.usersRepository.getReference(userUuid),
+        apartment: this.apartmentsRepository.getReference(item.apartment.uuid),
+        amount: item.totalPendingAmount,
+        status: transferData.status ?? 'pending',
+        currency: Currencies.NGN,
+        batch,
+      });
+      this.em.persist(payout);
+    }
+
+    await this.em.flush();
+
+    return {
+      status: true,
+      message: 'Batch payout initiated',
+      data: {
+        batchUuid: batch.uuid,
+        transferCode: batch.transferCode,
+        status: batch.status,
+        reference: batch.reference,
+        totalAmount: total,
+        apartmentsCount: items.length,
+      },
+    };
+  }
+
   async handlePaystackWebhook(
     payload: any,
     rawBody: string,
@@ -333,19 +475,10 @@ export class PaymentsService {
   }
 
   private async processTransferEvent(event: string, data: any) {
-    if (!data) {
-      return;
-    }
+    if (!data) return;
 
     const transferCode = data?.transfer_code;
     const reference = data?.reference;
-
-    let payout = await this.payoutRepository.findOne({
-      $or: [
-        transferCode ? { transferCode } : null,
-        reference ? { reference } : null,
-      ].filter(Boolean) as FilterQuery<PayOut>[],
-    });
 
     const status =
       event === 'transfer.success'
@@ -353,6 +486,61 @@ export class PaymentsService {
         : event === 'transfer.failed'
           ? 'failed'
           : data?.status ?? 'pending';
+
+    // Check for a batch payout first
+    const batch = await this.payoutBatchRepository.findOne({
+      $or: [
+        transferCode ? { transferCode } : null,
+        reference ? { reference } : null,
+      ].filter(Boolean) as FilterQuery<PayOutBatch>[],
+    });
+
+    if (batch) {
+      batch.status = status;
+      batch.providerReference = data?.id ? data.id.toString() : batch.providerReference;
+      batch.metadata = JSON.stringify(data);
+      batch.reference = batch.reference ?? reference;
+      batch.transferCode = batch.transferCode ?? transferCode;
+      if (data?.amount) batch.totalAmount = Number(data.amount) / 100;
+
+      const batchPayouts = await this.payoutRepository.find(
+        { batch: batch.uuid } as FilterQuery<PayOut>,
+      );
+
+      for (const p of batchPayouts) {
+        p.status = status;
+      }
+
+      if (status === 'success') {
+        const apartmentUuids = batchPayouts
+          .map((p) => p.apartment?.uuid)
+          .filter(Boolean);
+
+        if (apartmentUuids.length > 0) {
+          await this.bookingsRepository.nativeUpdate(
+            {
+              apartment: { $in: apartmentUuids },
+              status: BookingStatus.COMPLETED,
+              isPaidOut: false,
+              isCancelled: false,
+              deletedAt: null,
+            } as any,
+            { isPaidOut: true },
+          );
+        }
+      }
+
+      await this.em.flush();
+      return;
+    }
+
+    // Single payout flow
+    let payout = await this.payoutRepository.findOne({
+      $or: [
+        transferCode ? { transferCode } : null,
+        reference ? { reference } : null,
+      ].filter(Boolean) as FilterQuery<PayOut>[],
+    });
 
     if (!payout && status === 'success') {
       const metadata = data?.metadata ?? {};
@@ -364,9 +552,7 @@ export class PaymentsService {
           )
         : null;
 
-      if (!bankAccount) {
-        return;
-      }
+      if (!bankAccount) return;
 
       payout = this.payoutRepository.create({
         uuid: v4(),
@@ -389,15 +575,11 @@ export class PaymentsService {
 
     if (payout) {
       payout.status = status;
-      payout.providerReference = data?.id
-        ? data.id.toString()
-        : payout.providerReference;
+      payout.providerReference = data?.id ? data.id.toString() : payout.providerReference;
       payout.metadata = JSON.stringify(data);
       payout.reference = payout.reference ?? reference;
       payout.transferCode = payout.transferCode ?? transferCode;
-      if (data?.amount) {
-        payout.amount = Number(data.amount) / 100;
-      }
+      if (data?.amount) payout.amount = Number(data.amount) / 100;
       await this.em.flush();
     }
   }
