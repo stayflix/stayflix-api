@@ -46,4 +46,14 @@ export class PaymentsController {
   fetchUserBankAccounts(@Req() req: Request) {
     return this.paymentsService.fetchUserBankAccounts(req.user as any);
   }
+
+  @Get('transactions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Payout transaction history', description: 'Returns all payouts initiated by admin for the authenticated user, including batch and single payouts with their statuses.' })
+  @ApiOkResponse({ description: 'Payout transactions' })
+  getPayoutTransactions(@Req() req: Request) {
+    const user = req.user as any;
+    return this.paymentsService.getPayoutTransactions(user.uuid);
+  }
 }

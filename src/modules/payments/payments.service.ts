@@ -651,6 +651,59 @@ export class PaymentsService {
     }
   }
 
+  async getPayoutTransactions(userUuid: string) {
+    const [batches, singlePayouts] = await Promise.all([
+      this.payoutBatchRepository.find(
+        { user: userUuid } as FilterQuery<PayOutBatch>,
+        {
+          populate: ['payouts', 'payouts.apartment'],
+          orderBy: { createdAt: QueryOrder.DESC },
+        },
+      ),
+      this.payoutRepository.find(
+        { user: userUuid, batch: null } as FilterQuery<PayOut>,
+        {
+          populate: ['apartment'],
+          orderBy: { createdAt: QueryOrder.DESC },
+        },
+      ),
+    ]);
+
+    const batchItems = batches.map((batch) => ({
+      type: 'batch' as const,
+      uuid: batch.uuid,
+      totalAmount: batch.totalAmount,
+      status: batch.status,
+      reference: batch.reference,
+      transferCode: batch.transferCode,
+      createdAt: batch.createdAt,
+      apartments: batch.payouts.getItems().map((p) => ({
+        uuid: p.apartment?.uuid ?? null,
+        title: p.apartment?.title ?? null,
+        amount: p.amount,
+      })),
+    }));
+
+    const singleItems = singlePayouts.map((payout) => ({
+      type: 'single' as const,
+      uuid: payout.uuid,
+      amount: payout.amount,
+      status: payout.status,
+      reference: payout.reference,
+      transferCode: payout.transferCode,
+      createdAt: payout.createdAt,
+      apartment: payout.apartment
+        ? { uuid: payout.apartment.uuid, title: payout.apartment.title }
+        : null,
+    }));
+
+    const transactions = [...batchItems, ...singleItems].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return { transactions };
+  }
+
   async getPayoutHistoryForOwner(userUuid: string, apartmentUuid?: string) {
     const where: FilterQuery<PayOut> = {
       user: userUuid,
