@@ -39,3 +39,8 @@ export class InitiatePayoutDto {
   @IsString()
   narration?: string;
 }
+
+export class FinalizeTransferDto {
+  @IsString()
+  otp: string;
+}

@@ -18,6 +18,7 @@ import { Inject } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PaystackConfiguration } from 'src/config/configuration';
 import {
+  FinalizeTransferDto,
   InitiatePayoutDto,
   ResolveAccountDto,
   SaveBankAccountDto,
@@ -511,6 +512,145 @@ export class PaymentsService {
         totalAmount: total,
         apartmentsCount: items.length,
       },
+    };
+  }
+
+  async finalizeBatchPayout(batchUuid: string, dto: FinalizeTransferDto) {
+    const batch = await this.payoutBatchRepository.findOne({ uuid: batchUuid });
+    if (!batch) throw new NotFoundException('Batch payout not found');
+    if (!batch.transferCode) {
+      throw new BadRequestException('Batch payout has no transfer code');
+    }
+    if (batch.status === 'success' || batch.status === 'failed') {
+      throw new BadRequestException(
+        `Batch payout is already ${batch.status}; no OTP required`,
+      );
+    }
+
+    const transferData = await this.finalizePaystackTransfer(
+      batch.transferCode,
+      dto.otp,
+    );
+
+    batch.status = transferData?.status ?? batch.status;
+    batch.providerReference = transferData?.id
+      ? transferData.id.toString()
+      : batch.providerReference;
+    batch.metadata = JSON.stringify(transferData);
+
+    const batchPayouts = await this.payoutRepository.find(
+      { batch: batch.uuid } as FilterQuery<PayOut>,
+    );
+    for (const p of batchPayouts) {
+      p.status = transferData?.status ?? p.status;
+    }
+
+    await this.em.flush();
+
+    return {
+      status: true,
+      message: 'Batch payout finalized',
+      data: {
+        batchUuid: batch.uuid,
+        transferCode: batch.transferCode,
+        status: batch.status,
+        reference: batch.reference,
+      },
+    };
+  }
+
+  async finalizeSinglePayout(payoutUuid: string, dto: FinalizeTransferDto) {
+    const payout = await this.payoutRepository.findOne({ uuid: payoutUuid });
+    if (!payout) throw new NotFoundException('Payout not found');
+    if (!payout.transferCode) {
+      throw new BadRequestException('Payout has no transfer code');
+    }
+    if (payout.status === 'success' || payout.status === 'failed') {
+      throw new BadRequestException(
+        `Payout is already ${payout.status}; no OTP required`,
+      );
+    }
+
+    const transferData = await this.finalizePaystackTransfer(
+      payout.transferCode,
+      dto.otp,
+    );
+
+    payout.status = transferData?.status ?? payout.status;
+    payout.providerReference = transferData?.id
+      ? transferData.id.toString()
+      : payout.providerReference;
+    payout.metadata = JSON.stringify(transferData);
+
+    await this.em.flush();
+
+    return {
+      status: true,
+      message: 'Payout finalized',
+      data: {
+        payoutUuid: payout.uuid,
+        transferCode: payout.transferCode,
+        status: payout.status,
+        reference: payout.reference,
+      },
+    };
+  }
+
+  async resendBatchPayoutOtp(batchUuid: string) {
+    const batch = await this.payoutBatchRepository.findOne({ uuid: batchUuid });
+    if (!batch) throw new NotFoundException('Batch payout not found');
+    if (!batch.transferCode) {
+      throw new BadRequestException('Batch payout has no transfer code');
+    }
+    return this.resendPaystackOtp(batch.transferCode);
+  }
+
+  async resendSinglePayoutOtp(payoutUuid: string) {
+    const payout = await this.payoutRepository.findOne({ uuid: payoutUuid });
+    if (!payout) throw new NotFoundException('Payout not found');
+    if (!payout.transferCode) {
+      throw new BadRequestException('Payout has no transfer code');
+    }
+    return this.resendPaystackOtp(payout.transferCode);
+  }
+
+  private async finalizePaystackTransfer(transferCode: string, otp: string) {
+    const response = await axios
+      .post(
+        `${this.paystackConfig.baseUrl}/transfer/finalize_transfer`,
+        { transfer_code: transferCode, otp },
+        { headers: this.headers },
+      )
+      .catch((error) => {
+        throw new InternalServerErrorException(
+          error?.response?.data?.message ??
+            'Unable to finalize Paystack transfer',
+        );
+      });
+    const data = response?.data?.data;
+    if (!data) {
+      throw new InternalServerErrorException(
+        'Invalid Paystack finalize response',
+      );
+    }
+    return data;
+  }
+
+  private async resendPaystackOtp(transferCode: string) {
+    const response = await axios
+      .post(
+        `${this.paystackConfig.baseUrl}/transfer/resend_otp`,
+        { transfer_code: transferCode, reason: 'resend_otp' },
+        { headers: this.headers },
+      )
+      .catch((error) => {
+        throw new InternalServerErrorException(
+          error?.response?.data?.message ?? 'Unable to resend OTP',
+        );
+      });
+    return {
+      status: true,
+      message: response?.data?.message ?? 'OTP resent',
     };
   }
 
