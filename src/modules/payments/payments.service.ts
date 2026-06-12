@@ -640,7 +640,7 @@ export class PaymentsService {
     const response = await axios
       .post(
         `${this.paystackConfig.baseUrl}/transfer/resend_otp`,
-        { transfer_code: transferCode, reason: 'resend_otp' },
+        { transfer_code: transferCode, reason: 'transfer' },
         { headers: this.headers },
       )
       .catch((error) => {
