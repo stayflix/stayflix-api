@@ -62,6 +62,12 @@ export class AdminPaymentsController {
     return this.paymentsService.resendBatchPayoutOtp(uuid);
   }
 
+  @Post('batches/:uuid/reconcile')
+  @ApiOperation({ summary: 'Reconcile a successful batch payout', description: 'Manually marks all unpaid bookings tied to apartments in a successful batch as paid. Use this when a Paystack success webhook fired but bookings were not flipped to isPaidOut for any reason.' })
+  reconcileBatchPayout(@Param('uuid') uuid: string) {
+    return this.paymentsService.reconcileBatchPayout(uuid);
+  }
+
   @Post(':uuid/finalize')
   @ApiOperation({ summary: 'Finalize single payout with OTP', description: 'Finalizes a single payout that is in `otp` status by submitting the OTP sent by Paystack to the merchant.' })
   finalizeSinglePayout(@Param('uuid') uuid: string, @Body() dto: FinalizeTransferDto) {

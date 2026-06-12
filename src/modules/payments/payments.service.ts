@@ -716,22 +716,8 @@ export class PaymentsService {
         p.status = status;
       }
 
-      if (status === 'success') {
-        const apartmentUuids = batchPayouts
-          .map((p) => p.apartment?.uuid)
-          .filter(Boolean);
-
-        if (apartmentUuids.length > 0) {
-          await this.bookingsRepository.nativeUpdate(
-            {
-              apartment: { $in: apartmentUuids },
-              isPaidOut: false,
-              isCancelled: false,
-              deletedAt: null,
-            } as any,
-            { isPaidOut: true },
-          );
-        }
+      if (this.isSuccessStatus(status)) {
+        await this.markBatchApartmentsAsPaid(batch.uuid);
       }
 
       await this.em.flush();
@@ -786,6 +772,60 @@ export class PaymentsService {
       if (data?.amount) payout.amount = Number(data.amount) / 100;
       await this.em.flush();
     }
+  }
+
+  private isSuccessStatus(status?: string | null) {
+    if (!status) return false;
+    const s = status.toString().toLowerCase();
+    return s === 'success' || s === 'successful' || s === 'completed';
+  }
+
+  private async markBatchApartmentsAsPaid(batchUuid: string) {
+    const rows = await this.em
+      .getConnection()
+      .execute<{ apartment: string | null }[]>(
+        'select distinct `apartment` from `pay_outs` where `batch` = ? and `apartment` is not null',
+        [batchUuid],
+      );
+
+    const apartmentUuids = rows
+      .map((r) => r.apartment)
+      .filter((uuid): uuid is string => Boolean(uuid));
+
+    if (!apartmentUuids.length) return 0;
+
+    const result = await this.bookingsRepository.nativeUpdate(
+      {
+        apartment: { $in: apartmentUuids },
+        isPaidOut: false,
+        isCancelled: false,
+        deletedAt: null,
+      } as any,
+      { isPaidOut: true },
+    );
+
+    return typeof result === 'number' ? result : apartmentUuids.length;
+  }
+
+  async reconcileBatchPayout(batchUuid: string) {
+    const batch = await this.payoutBatchRepository.findOne({ uuid: batchUuid });
+    if (!batch) throw new NotFoundException('Batch payout not found');
+    if (!this.isSuccessStatus(batch.status)) {
+      throw new BadRequestException(
+        `Batch status is "${batch.status}". Only successful batches can be reconciled.`,
+      );
+    }
+
+    const bookingsUpdated = await this.markBatchApartmentsAsPaid(batch.uuid);
+
+    return {
+      status: true,
+      message: 'Batch payout reconciled',
+      data: {
+        batchUuid: batch.uuid,
+        bookingsMarkedPaid: bookingsUpdated,
+      },
+    };
   }
 
   async getPayoutTransactions(userUuid: string) {
