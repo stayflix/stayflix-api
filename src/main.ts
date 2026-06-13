@@ -13,7 +13,16 @@ async function bootstrap() {
     cors: corsConfiguration,
   });
 
-  app.use(express.json({ limit: '10mb' }));
+  app.use(
+    express.json({
+      limit: '10mb',
+      // Capture the exact request bytes so webhook HMAC signatures (e.g. Paystack)
+      // can be verified against the raw payload rather than a re-stringified body.
+      verify: (req: express.Request & { rawBody?: Buffer }, _res, buf) => {
+        req.rawBody = buf;
+      },
+    }),
+  );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 

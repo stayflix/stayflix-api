@@ -566,6 +566,12 @@ export class PaymentsService {
       p.status = transferData?.status ?? p.status;
     }
 
+    // OTP finalization can return a terminal 'success' synchronously, so settle
+    // the bookings here too — otherwise they only ever get marked by the webhook.
+    if (this.isSuccessStatus(batch.status)) {
+      await this.markBatchBookingsAsPaid(batch.uuid);
+    }
+
     await this.em.flush();
 
     return {
