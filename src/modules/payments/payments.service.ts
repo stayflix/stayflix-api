@@ -30,6 +30,7 @@ import { Currencies, IAdminAuthContext, IAuthContext } from 'src/types';
 import {
   PayOut,
   PayOutBatch,
+  PayOutBooking,
   Apartments,
   Bookings,
   BookingStatus,
@@ -50,6 +51,8 @@ export class PaymentsService {
     private readonly payoutRepository: EntityRepository<PayOut>,
     @InjectRepository(PayOutBatch)
     private readonly payoutBatchRepository: EntityRepository<PayOutBatch>,
+    @InjectRepository(PayOutBooking)
+    private readonly payoutBookingRepository: EntityRepository<PayOutBooking>,
     @InjectRepository(Apartments)
     private readonly apartmentsRepository: EntityRepository<Apartments>,
     @InjectRepository(Bookings)
@@ -399,14 +402,19 @@ export class PaymentsService {
       isCancelled: false,
     } as FilterQuery<Bookings>);
 
-    const grouped = new Map<string, { amount: number; count: number }>();
+    const grouped = new Map<
+      string,
+      { amount: number; count: number; bookingUuids: string[] }
+    >();
     for (const booking of bookings) {
       const apUuid = booking.apartment?.uuid;
       if (!apUuid) continue;
-      if (!grouped.has(apUuid)) grouped.set(apUuid, { amount: 0, count: 0 });
+      if (!grouped.has(apUuid))
+        grouped.set(apUuid, { amount: 0, count: 0, bookingUuids: [] });
       const entry = grouped.get(apUuid)!;
       entry.amount += Number(booking.totalAmount ?? 0);
       entry.count += 1;
+      entry.bookingUuids.push(booking.uuid);
     }
 
     const items = Array.from(grouped.entries()).map(([apUuid, data]) => {
@@ -415,6 +423,7 @@ export class PaymentsService {
         apartment: { uuid: apt.uuid, title: apt.title },
         pendingBookingsCount: data.count,
         totalPendingAmount: data.amount,
+        bookingUuids: data.bookingUuids,
       };
     });
 
@@ -497,6 +506,18 @@ export class PaymentsService {
         batch,
       });
       this.em.persist(payout);
+
+      // Snapshot the exact bookings settled by this payout so the webhook can
+      // mark only these as paid out (not every unpaid booking on the apartment).
+      for (const bookingUuid of item.bookingUuids) {
+        const payoutBooking = this.payoutBookingRepository.create({
+          uuid: v4(),
+          payout,
+          batch,
+          booking: this.bookingsRepository.getReference(bookingUuid),
+        });
+        this.em.persist(payoutBooking);
+      }
     }
 
     await this.em.flush();
@@ -717,7 +738,7 @@ export class PaymentsService {
       }
 
       if (this.isSuccessStatus(status)) {
-        await this.markBatchApartmentsAsPaid(batch.uuid);
+        await this.markBatchBookingsAsPaid(batch.uuid);
       }
 
       await this.em.flush();
@@ -780,6 +801,38 @@ export class PaymentsService {
     return s === 'success' || s === 'successful' || s === 'completed';
   }
 
+  private async markBatchBookingsAsPaid(batchUuid: string) {
+    // Prefer the exact bookings snapshotted at payout initiation time.
+    const rows = await this.em
+      .getConnection()
+      .execute<{ booking: string | null }[]>(
+        'select distinct `booking` from `pay_out_bookings` where `batch` = ? and `booking` is not null',
+        [batchUuid],
+      );
+
+    const bookingUuids = rows
+      .map((r) => r.booking)
+      .filter((uuid): uuid is string => Boolean(uuid));
+
+    if (!bookingUuids.length) {
+      // Legacy batches (created before per-booking tracking) fall back to the
+      // apartment-wide sweep.
+      return this.markBatchApartmentsAsPaid(batchUuid);
+    }
+
+    const result = await this.bookingsRepository.nativeUpdate(
+      {
+        uuid: { $in: bookingUuids },
+        isPaidOut: false,
+        isCancelled: false,
+        deletedAt: null,
+      } as any,
+      { isPaidOut: true },
+    );
+
+    return typeof result === 'number' ? result : bookingUuids.length;
+  }
+
   private async markBatchApartmentsAsPaid(batchUuid: string) {
     const rows = await this.em
       .getConnection()
@@ -816,7 +869,7 @@ export class PaymentsService {
       );
     }
 
-    const bookingsUpdated = await this.markBatchApartmentsAsPaid(batch.uuid);
+    const bookingsUpdated = await this.markBatchBookingsAsPaid(batch.uuid);
 
     return {
       status: true,

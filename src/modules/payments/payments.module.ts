@@ -9,6 +9,7 @@ import { Users } from '../users/users.entity';
 import {
   PayOut,
   PayOutBatch,
+  PayOutBooking,
   Apartments,
   Bookings,
 } from '../apartments/apartments.entity';
@@ -18,7 +19,15 @@ import { PaystackConfiguration } from 'src/config/configuration';
 @Module({
   imports: [
     MikroOrmModule.forFeature({
-      entities: [UserBankAccount, Users, PayOut, PayOutBatch, Apartments, Bookings],
+      entities: [
+        UserBankAccount,
+        Users,
+        PayOut,
+        PayOutBatch,
+        PayOutBooking,
+        Apartments,
+        Bookings,
+      ],
     }),
     ConfigModule.forFeature(PaystackConfiguration),
   ],

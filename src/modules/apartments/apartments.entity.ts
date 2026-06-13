@@ -407,6 +407,41 @@ export class Bookings extends Timestamp {
   cond: { deletedAt: null },
   default: true,
 })
+@Entity({ tableName: 'pay_out_bookings' })
+export class PayOutBooking extends Timestamp {
+  @PrimaryKey()
+  uuid: string;
+
+  @ManyToOne(() => PayOut, {
+    fieldName: 'payout',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  payout: PayOut;
+
+  @ManyToOne(() => PayOutBatch, {
+    fieldName: 'batch',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  batch: PayOutBatch;
+
+  @ManyToOne(() => Bookings, {
+    fieldName: 'booking',
+    referenceColumnName: 'uuid',
+    columnType: 'varchar(255)',
+    nullable: true,
+  })
+  booking: Bookings;
+}
+
+@Filter({
+  name: 'notDeleted',
+  cond: { deletedAt: null },
+  default: true,
+})
 @Entity({ tableName: 'apartment_reviews' })
 export class ApartmentReviews extends Timestamp {
   @PrimaryKey()
