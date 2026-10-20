@@ -13,8 +13,10 @@ module.exports = {
       max_memory_restart: '512M',
 
       // ── Logging ───────────────────────────────────────────────────────
-      out_file: '/var/log/stayflix-api/out.log',
-      error_file: '/var/log/stayflix-api/error.log',
+      // Relative paths resolve against the deploy dir (pm2's cwd), which the
+      // deploy user owns, so no root-owned /var/log step is needed on a new VPS.
+      out_file: 'logs/out.log',
+      error_file: 'logs/error.log',
       merge_logs: true,
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
 
